@@ -1,5 +1,9 @@
-<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <defs><linearGradient id="cit-g" x1="16" y1="16" x2="48" y2="48"><stop stop-color="#53E1C0"/><stop offset="1" stop-color="#2CB0D8"/></linearGradient></defs>
-  <path d="M32 12L47 18V29C47 39 40.5 47 32 52C23.5 47 17 39 17 29V18L32 12Z" fill="#11182D" stroke="url(#cit-g)" stroke-width="2.5"/>
-  <path d="M25 31L30 36L39 26" stroke="#F3D37C" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 320" fill="none">
+  <rect x="9" y="9" width="222" height="302" rx="28" fill="#121214" stroke="#D4AF37" stroke-width="4"/>
+  <path d="M36 44h170v236H36z" stroke="#777" stroke-width="2" opacity="0.4"/>
+  <circle cx="120" cy="102" r="28" fill="#EEE"/>
+  <rect x="84" y="136" width="72" height="86" rx="18" fill="#D4AF37" opacity="0.85"/>
+  <path d="M84 182h72" stroke="#121214" stroke-width="5" opacity="0.5"/>
+  <path d="M72 250h96" stroke="#D4AF37" stroke-width="3"/>
+  <text x="120" y="288" font-size="30" text-anchor="middle" fill="#F8F3E7" font-family="Arial">CITIZEN</text>
 </svg>

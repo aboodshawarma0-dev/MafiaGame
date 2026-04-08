@@ -1,6 +1,9 @@
-<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <defs><linearGradient id="det-g" x1="18" y1="18" x2="46" y2="46"><stop stop-color="#F3D37C"/><stop offset="1" stop-color="#FFC056"/></linearGradient></defs>
-  <circle cx="28" cy="28" r="12" fill="#11182D" stroke="url(#det-g)" stroke-width="2.5"/>
-  <path d="M37 37L48 48" stroke="#53E1C0" stroke-width="4" stroke-linecap="round"/>
-  <circle cx="28" cy="28" r="5" fill="#F3D37C" fill-opacity="0.2"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 320" fill="none">
+  <rect x="9" y="9" width="222" height="302" rx="28" fill="#121214" stroke="#D4AF37" stroke-width="4"/>
+  <path d="M36 40h170v240H36z" stroke="#4667AA" stroke-width="2" opacity="0.6"/>
+  <circle cx="108" cy="124" r="36" stroke="#D4AF37" stroke-width="10"/>
+  <path d="M132 148l38 38" stroke="#D4AF37" stroke-width="12" stroke-linecap="round"/>
+  <path d="M92 123h32" stroke="#F8F3E7" stroke-width="4" stroke-linecap="round"/>
+  <path d="M120 108c4 4 6 10 6 16 0 13-10 23-23 23-7 0-13-3-17-8" stroke="#F8F3E7" stroke-width="4" stroke-linecap="round"/>
+  <text x="120" y="288" font-size="28" text-anchor="middle" fill="#F8F3E7" font-family="Arial">DETECTIVE</text>
 </svg>

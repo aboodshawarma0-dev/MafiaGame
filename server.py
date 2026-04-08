@@ -1,16 +1,12 @@
 import os
 import random
 import string
-import time
-import logging
-from flask import Flask, request, jsonify, render_template
-from flask_socketio import SocketIO, join_room, emit
-
-logging.basicConfig(level=logging.INFO)
-log = logging.getLogger(__name__)
+from datetime import datetime, timedelta, timezone
+from flask import Flask, jsonify, render_template, request
+from flask_socketio import SocketIO, emit, join_room
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-app = Flask(__name__, template_folder=os.path.join(BASE_DIR, 'templates'), static_folder=os.path.join(BASE_DIR, 'static'))
+app = Flask(__name__, template_folder=os.path.join(BASE_DIR, 'templates'), static_folder=os.path.join(BASE_DIR, 'static'), static_url_path='/static')
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'omerta_gold_2026')
 app.config['MAX_CONTENT_LENGTH'] = 4 * 1024 * 1024
 
@@ -20,176 +16,178 @@ socketio = SocketIO(
     async_mode='gevent',
     logger=False,
     engineio_logger=False,
-    ping_timeout=60,
-    ping_interval=25,
+    ping_timeout=20,
+    ping_interval=10,
     max_http_buffer_size=4 * 1024 * 1024,
     allow_upgrades=True,
 )
 
+ROOMS = {}
 MIN_PLAYERS = 4
 MAX_PLAYERS = 12
-ROOM_KEEP_SECONDS = 24 * 60 * 60
+UTC = timezone.utc
 
 ROLES = {
-    'mafia': {'label': 'المافيا', 'color': '#d4af63'},
-    'citizen': {'label': 'المواطن', 'color': '#f6ead0'},
-    'doctor': {'label': 'الطبيب', 'color': '#d4af63'},
-    'detective': {'label': 'الكاشف', 'color': '#d4af63'},
+    'mafia': {'label': 'مافيا', 'icon': '/static/svg/role-mafia.svg', 'accent': '#B11226'},
+    'doctor': {'label': 'الطبيب', 'icon': '/static/svg/role-doctor.svg', 'accent': '#2AA5A0'},
+    'detective': {'label': 'الكاشف', 'icon': '/static/svg/role-detective.svg', 'accent': '#4667AA'},
+    'citizen': {'label': 'مواطن', 'icon': '/static/svg/role-citizen.svg', 'accent': '#D4AF37'},
 }
 
-rooms = {}
 
-
-def now_ts():
-    return int(time.time())
+def now_utc():
+    return datetime.now(UTC)
 
 
 def cleanup_rooms():
-    cutoff = now_ts() - ROOM_KEEP_SECONDS
-    for token in list(rooms.keys()):
-        room = rooms[token]
-        stale = room.get('created_at', 0) < cutoff
-        empty_too_long = not room['players'] and room.get('updated_at', 0) < now_ts() - 7200
-        if stale or empty_too_long:
-            rooms.pop(token, None)
+    cutoff = now_utc() - timedelta(hours=24)
+    for token in list(ROOMS.keys()):
+        room = ROOMS[token]
+        if not room['players'] and room['created_at'] < cutoff:
+            del ROOMS[token]
 
 
 def make_token():
     chars = string.ascii_uppercase + string.digits
     while True:
         token = ''.join(random.choices(chars, k=8))
-        if token not in rooms:
+        if token not in ROOMS:
             return token
 
 
 def new_room(name=''):
-    ts = now_ts()
     return {
-        'players': {},
-        'host': None,
-        'started': False,
         'room_name': name,
+        'host': None,
+        'players': {},
+        'created_at': now_utc(),
+        'started': False,
         'game_phase': 'waiting',
         'game_round': 0,
         'votes': {},
         'night_actions': {},
         'protected_sid': None,
-        'created_at': ts,
-        'updated_at': ts,
     }
 
 
-def touch_room(token):
-    room = rooms.get(token)
-    if room:
-        room['updated_at'] = now_ts()
-
-
-def phase_label(phase):
-    return {
-        'waiting': 'اللوبي',
-        'night': 'الليل',
-        'day': 'النهار',
-        'voting': 'التصويت',
-        'results': 'النتائج',
-    }.get(phase, phase)
-
-
 def used_names(token):
-    room = rooms.get(token)
+    room = ROOMS.get(token)
     if not room:
         return set()
-    return {p['username'].lower() for p in room['players'].values()}
+    return {p['username'].strip().lower() for p in room['players'].values()}
 
 
-def next_available_name(token, base):
-    names = used_names(token)
-    candidate = base or 'لاعب'
-    if candidate.lower() not in names:
-        return candidate
-    i = 2
+def next_name(token, base):
+    if base.lower() not in used_names(token):
+        return base
+    idx = 2
     while True:
-        alt = f'{candidate} {i}'
-        if alt.lower() not in names:
-            return alt
-        i += 1
+        candidate = f'{base} {idx}'
+        if candidate.lower() not in used_names(token):
+            return candidate
+        idx += 1
+
+
+def voice_scope_for(token, sid):
+    room = ROOMS.get(token)
+    if not room:
+        return 'all'
+    phase = room.get('game_phase', 'waiting')
+    player = room['players'].get(sid)
+    if not player:
+        return 'all'
+    if phase in ('waiting', 'day', 'voting', 'results'):
+        return 'all'
+    if phase == 'night':
+        if player.get('role') == 'mafia' and player.get('alive', True):
+            return 'mafia'
+        return 'silent'
+    return 'all'
+
+
+def player_visible_to(token, viewer_sid, player_sid):
+    room = ROOMS.get(token)
+    if not room:
+        return True
+    scope = voice_scope_for(token, viewer_sid)
+    player = room['players'].get(player_sid)
+    if not player:
+        return False
+    if scope == 'all':
+        return True
+    if scope == 'mafia':
+        return player.get('role') == 'mafia' and player.get('alive', True)
+    return player_sid == viewer_sid
+
+
+def speaking_visible(token, viewer_sid, player_sid):
+    room = ROOMS.get(token)
+    if not room:
+        return False
+    player = room['players'].get(player_sid)
+    if not player:
+        return False
+    if not player_visible_to(token, viewer_sid, player_sid):
+        return False
+    return player.get('speaking', False)
+
+
+def player_payload_for(token, viewer_sid):
+    room = ROOMS.get(token)
+    if not room:
+        return []
+    items = []
+    for sid, player in room['players'].items():
+        items.append({
+            'sid': sid,
+            'username': player['username'],
+            'customImg': player.get('customImg', ''),
+            'mic': player.get('mic', False),
+            'speaking': speaking_visible(token, viewer_sid, sid),
+            'alive': player.get('alive', True),
+            'is_host': sid == room['host'],
+            'visible': player_visible_to(token, viewer_sid, sid),
+            'role': player.get('role') if room.get('game_phase') == 'results' else None,
+        })
+    return items
+
+
+def sync_players(token):
+    room = ROOMS.get(token)
+    if not room:
+        return
+    count = len(room['players'])
+    for sid in list(room['players'].keys()):
+        socketio.emit('update_players', {
+            'players': player_payload_for(token, sid),
+            'count': count,
+            'voice_scope': voice_scope_for(token, sid),
+        }, room=sid)
+
+
+def system_message(token, message):
+    socketio.emit('new_message', {'type': 'system', 'msg': message}, room=token)
 
 
 def alive_players(token):
-    room = rooms.get(token)
+    room = ROOMS.get(token)
     if not room:
         return []
     return [(sid, p) for sid, p in room['players'].items() if p.get('alive', True)]
 
 
-def players_payload(token):
-    room = rooms.get(token)
-    if not room:
-        return []
-    items = []
-    for sid, p in room['players'].items():
-        items.append({
-            'sid': sid,
-            'username': p['username'],
-            'avatar': p.get('avatar', 'unknown'),
-            'avatarType': p.get('avatarType', 'builtin'),
-            'customImg': p.get('customImg') or '',
-            'mic': p.get('mic', False),
-            'speaking': p.get('speaking', False),
-            'alive': p.get('alive', True),
-            'is_host': sid == room['host'],
-            'role': p.get('role') if room['game_phase'] == 'results' else None,
-        })
-    return items
-
-
-def room_public_payload(token, room):
-    return {
-        'token': token,
-        'room_name': room['room_name'],
-        'players': len(room['players']),
-        'started': room['started'],
-        'phase': room['game_phase'],
-        'phase_label': phase_label(room['game_phase']),
-        'can_join': len(room['players']) < MAX_PLAYERS or not room['started'],
-        'created_at': room.get('created_at', now_ts()),
-    }
-
-
-def broadcast(token, event, data):
-    touch_room(token)
-    socketio.emit(event, data, room=token)
-
-
-def sync_players(token):
-    if token not in rooms:
-        return
-    room = rooms[token]
-    broadcast(token, 'update_players', {
-        'players': players_payload(token),
-        'count': len(room['players']),
-        'host': room['host'],
-        'phase': room['game_phase'],
-        'phase_label': phase_label(room['game_phase']),
-    })
-
-
-def system_message(token, text):
-    broadcast(token, 'new_message', {'type': 'system', 'msg': text})
-
-
 def assign_roles(token):
-    room = rooms.get(token)
+    room = ROOMS.get(token)
     if not room:
         return
     sids = list(room['players'].keys())
-    random.shuffle(sids)
     n = len(sids)
-    num_mafia = 1 if n < 6 else max(2, n // 4)
-    num_doctor = 1 if n >= 4 else 0
-    num_detective = 1 if n >= 5 else 0
-    num_citizen = n - num_mafia - num_doctor - num_detective
-    roles = ['mafia'] * num_mafia + ['doctor'] * num_doctor + ['detective'] * num_detective + ['citizen'] * num_citizen
+    mafia = max(1, n // 4)
+    doctor = 1 if n >= 5 else 0
+    detective = 1 if n >= 6 else 0
+    citizen = n - mafia - doctor - detective
+    roles = ['mafia'] * mafia + ['doctor'] * doctor + ['detective'] * detective + ['citizen'] * citizen
+    random.shuffle(sids)
     random.shuffle(roles)
     for sid, role in zip(sids, roles):
         room['players'][sid]['role'] = role
@@ -198,8 +196,8 @@ def assign_roles(token):
 
 def check_win(token):
     alive = alive_players(token)
-    mafia_count = sum(1 for _, p in alive if p['role'] == 'mafia')
-    citizen_count = sum(1 for _, p in alive if p['role'] != 'mafia')
+    mafia_count = sum(1 for _, p in alive if p.get('role') == 'mafia')
+    citizen_count = sum(1 for _, p in alive if p.get('role') != 'mafia')
     if mafia_count == 0:
         return 'citizens'
     if mafia_count >= citizen_count:
@@ -207,117 +205,127 @@ def check_win(token):
     return None
 
 
-def end_game(token, winner):
-    room = rooms.get(token)
+def broadcast_role_cards(token):
+    room = ROOMS.get(token)
     if not room:
         return
-    reveal = []
-    for sid, p in room['players'].items():
-        reveal.append({
-            'sid': sid,
-            'username': p['username'],
-            'avatar': p.get('avatar', 'unknown'),
-            'avatarType': p.get('avatarType', 'builtin'),
-            'customImg': p.get('customImg') or '',
-            'role': p.get('role', 'citizen'),
-            'alive': p.get('alive', True),
-        })
-    broadcast(token, 'game_over', {
-        'winner': winner,
-        'label': 'فاز فريق المدينة' if winner == 'citizens' else 'فاز فريق المافيا',
-        'players': reveal,
-    })
-    room.update({
-        'game_phase': 'waiting',
-        'started': False,
-        'votes': {},
-        'night_actions': {},
-        'game_round': 0,
-        'protected_sid': None,
-    })
-    for p in room['players'].values():
-        p['role'] = None
-        p['alive'] = True
-    sync_players(token)
+    for sid, player in room['players'].items():
+        role = player.get('role')
+        if role:
+            meta = ROLES[role]
+            socketio.emit('your_role', {
+                'role': role,
+                'label': meta['label'],
+                'icon': meta['icon'],
+                'accent': meta['accent'],
+            }, room=sid)
 
 
 def send_night_info(token):
-    room = rooms.get(token)
+    room = ROOMS.get(token)
     if not room:
         return
-    all_alive = [{'sid': sid, 'username': p['username']} for sid, p in room['players'].items() if p['alive']]
-    non_mafia = [{'sid': sid, 'username': p['username']} for sid, p in room['players'].items() if p['alive'] and p['role'] != 'mafia']
+    alive = [{'sid': sid, 'username': p['username']} for sid, p in room['players'].items() if p.get('alive', True)]
+    non_mafia = [{'sid': sid, 'username': p['username']} for sid, p in room['players'].items() if p.get('alive', True) and p.get('role') != 'mafia']
     for sid, player in room['players'].items():
-        if not player.get('alive'):
+        if not player.get('alive', True):
             continue
         role = player.get('role')
-        payload = {'role': role, 'targets': []}
         if role == 'mafia':
-            payload['targets'] = non_mafia
+            team = [{'sid': s, 'username': p['username']} for s, p in room['players'].items() if p.get('alive', True) and p.get('role') == 'mafia']
+            socketio.emit('night_info', {'role': 'mafia', 'targets': non_mafia, 'team': team}, room=sid)
         elif role == 'doctor':
-            payload['targets'] = all_alive
+            socketio.emit('night_info', {'role': 'doctor', 'targets': alive}, room=sid)
         elif role == 'detective':
-            payload['targets'] = [p for p in all_alive if p['sid'] != sid]
-        socketio.emit('night_info', payload, room=sid)
+            options = [{'sid': s, 'username': p['username']} for s, p in room['players'].items() if p.get('alive', True) and s != sid]
+            socketio.emit('night_info', {'role': 'detective', 'targets': options}, room=sid)
+
+
+def end_game(token, winner):
+    room = ROOMS.get(token)
+    if not room:
+        return
+    payload = []
+    for sid, p in room['players'].items():
+        payload.append({
+            'sid': sid,
+            'username': p['username'],
+            'customImg': p.get('customImg', ''),
+            'alive': p.get('alive', True),
+            'role': p.get('role', 'citizen'),
+        })
+    socketio.emit('game_over', {
+        'winner': winner,
+        'label': 'فاز أهل المدينة' if winner == 'citizens' else 'فازت المافيا',
+        'players': payload,
+    }, room=token)
+    room['started'] = False
+    room['game_phase'] = 'waiting'
+    room['game_round'] = 0
+    room['votes'] = {}
+    room['night_actions'] = {}
+    room['protected_sid'] = None
+    for player in room['players'].values():
+        player['alive'] = True
+        player['role'] = None
+        player['speaking'] = False
+    sync_players(token)
 
 
 def resolve_night(token):
-    room = rooms.get(token)
+    room = ROOMS.get(token)
     if not room:
         return
-    kill_votes = {}
+    votes = {}
     for actor_sid, target_sid in room['night_actions'].items():
         actor = room['players'].get(actor_sid)
         if actor and actor.get('role') == 'mafia' and target_sid:
-            kill_votes[target_sid] = kill_votes.get(target_sid, 0) + 1
-    kill_sid = max(kill_votes, key=kill_votes.get) if kill_votes else None
+            votes[target_sid] = votes.get(target_sid, 0) + 1
+    target = max(votes, key=votes.get) if votes else None
     killed_name = None
-    if kill_sid and kill_sid != room.get('protected_sid') and kill_sid in room['players']:
-        room['players'][kill_sid]['alive'] = False
-        killed_name = room['players'][kill_sid]['username']
+    if target and target != room.get('protected_sid') and target in room['players']:
+        room['players'][target]['alive'] = False
+        room['players'][target]['speaking'] = False
+        killed_name = room['players'][target]['username']
     room['night_actions'] = {}
     room['protected_sid'] = None
     room['game_phase'] = 'day'
-    room['updated_at'] = now_ts()
-    system_message(token, f'بدأ النهار. خرج من اللعبة: {killed_name}' if killed_name else 'بدأ النهار. لم يخرج أحد هذه الليلة')
+    socketio.emit('phase_change', {'phase': 'day', 'round': room['game_round'], 'killed': killed_name}, room=token)
+    system_message(token, f'تم إعلان الصباح. {killed_name or "لم يسقط أحد"}')
     winner = check_win(token)
     if winner:
         end_game(token, winner)
-        return
-    broadcast(token, 'phase_change', {'phase': 'day', 'round': room['game_round'], 'killed': killed_name})
-    sync_players(token)
+    else:
+        sync_players(token)
 
 
 def resolve_vote(token):
-    room = rooms.get(token)
+    room = ROOMS.get(token)
     if not room:
         return
     counts = {}
-    for target_sid in room['votes'].values():
+    for _, target_sid in room['votes'].items():
         counts[target_sid] = counts.get(target_sid, 0) + 1
-    eliminated_sid = None
+    eliminated = None
     if counts:
         top = max(counts.values())
-        candidates = [sid for sid, total in counts.items() if total == top]
-        eliminated_sid = random.choice(candidates)
-    eliminated_name = None
-    if eliminated_sid and eliminated_sid in room['players']:
-        room['players'][eliminated_sid]['alive'] = False
-        eliminated_name = room['players'][eliminated_sid]['username']
+        candidates = [sid for sid, value in counts.items() if value == top]
+        eliminated = random.choice(candidates)
+        if eliminated in room['players']:
+            room['players'][eliminated]['alive'] = False
+            room['players'][eliminated]['speaking'] = False
+    eliminated_name = room['players'][eliminated]['username'] if eliminated else None
     room['votes'] = {}
-    room['game_round'] += 1
     room['game_phase'] = 'night'
-    room['night_actions'] = {}
-    room['protected_sid'] = None
-    room['updated_at'] = now_ts()
-    system_message(token, f'انتهى التصويت. خرج من اللعبة: {eliminated_name}' if eliminated_name else 'انتهى التصويت بلا إقصاء')
+    room['game_round'] += 1
+    socketio.emit('phase_change', {'phase': 'night', 'round': room['game_round'], 'eliminated': eliminated_name}, room=token)
+    send_night_info(token)
+    system_message(token, f'بدأ الليل. {eliminated_name or "لم يتم إقصاء أحد"}')
     winner = check_win(token)
     if winner:
         end_game(token, winner)
-        return
-    send_night_info(token)
-    broadcast(token, 'phase_change', {'phase': 'night', 'round': room['game_round'], 'eliminated': eliminated_name})
-    sync_players(token)
+    else:
+        sync_players(token)
 
 
 @app.route('/')
@@ -328,11 +336,11 @@ def index():
 
 @app.route('/room/<token>')
 def room_page(token):
-    cleanup_rooms()
     token = token.upper()
-    if token not in rooms:
-        rooms[token] = new_room(token)
-    return render_template('room.html', token=token, room_name=rooms[token]['room_name'])
+    if token not in ROOMS:
+        ROOMS[token] = new_room(f'غرفة {token}')
+    cleanup_rooms()
+    return render_template('room.html', token=token, room_name=ROOMS[token]['room_name'])
 
 
 @app.route('/create_room', methods=['POST'])
@@ -340,199 +348,179 @@ def create_room():
     cleanup_rooms()
     data = request.get_json(silent=True) or {}
     token = make_token()
-    name = (data.get('room_name') or f'غرفة {token}').strip()[:40] or f'غرفة {token}'
-    rooms[token] = new_room(name)
+    name = (data.get('room_name') or f'غرفة {token}').strip()[:40]
+    ROOMS[token] = new_room(name)
     return jsonify({'success': True, 'room_id': token, 'room_name': name})
 
 
 @app.route('/room_exists/<token>')
 def room_exists(token):
-    cleanup_rooms()
-    token = token.upper()
-    room = rooms.get(token)
+    room = ROOMS.get(token.upper())
     if not room:
         return jsonify({'exists': False})
-    return jsonify({
-        'exists': True,
-        'started': room['started'],
-        'room_name': room['room_name'],
-        'players': len(room['players']),
-        'phase': room['game_phase'],
-        'phase_label': phase_label(room['game_phase']),
-    })
+    return jsonify({'exists': True, 'room_name': room['room_name'], 'players': len(room['players']), 'started': room['started']})
 
 
 @app.route('/check_name', methods=['POST'])
 def check_name():
-    token = (request.json or {}).get('token', '').upper()
-    name = ((request.json or {}).get('username') or '').strip()
-    room = rooms.get(token)
-    if not room:
-        return jsonify({'taken': False, 'suggested': name})
-    taken = name.lower() in used_names(token)
-    return jsonify({'taken': taken, 'suggested': next_available_name(token, name) if taken else name})
+    data = request.get_json(silent=True) or {}
+    token = (data.get('token') or '').upper()
+    username = (data.get('username') or '').strip()
+    if token not in ROOMS or not username:
+        return jsonify({'taken': False, 'suggested': username})
+    taken = username.lower() in used_names(token)
+    return jsonify({'taken': taken, 'suggested': next_name(token, username) if taken else username})
 
 
 @app.route('/api/stats')
 def stats():
     cleanup_rooms()
-    total = sum(len(room['players']) for room in rooms.values())
-    return jsonify({'rooms': len(rooms), 'players': total})
+    return jsonify({'rooms': len(ROOMS), 'players': sum(len(room['players']) for room in ROOMS.values())})
 
 
-@app.route('/api/rooms')
+@app.route('/api/recent_rooms')
 def recent_rooms():
     cleanup_rooms()
+    cutoff = now_utc() - timedelta(hours=24)
     items = []
-    for token, room in rooms.items():
-        if room.get('created_at', 0) >= now_ts() - ROOM_KEEP_SECONDS:
-            items.append(room_public_payload(token, room))
-    items.sort(key=lambda r: r['created_at'], reverse=True)
-    return jsonify({'rooms': items[:20]})
+    for token, room in ROOMS.items():
+        if room['created_at'] >= cutoff:
+            items.append({
+                'token': token,
+                'room_name': room['room_name'],
+                'players': len(room['players']),
+                'started': room['started'],
+            })
+    items.sort(key=lambda item: item['players'], reverse=True)
+    return jsonify({'rooms': items[:12]})
 
 
 @socketio.on('join')
-def handle_join(data):
-    try:
-        cleanup_rooms()
-        token = (data.get('room') or '').strip().upper()
-        username = (data.get('username') or 'لاعب').strip()[:24] or 'لاعب'
-        avatar = data.get('avatar') or 'unknown'
-        avatar_type = data.get('avatarType') or 'builtin'
-        custom_img = (data.get('customImg') or '').strip()
-        if not token:
-            return
-        if token not in rooms:
-            rooms[token] = new_room(token)
-        room = rooms[token]
-        existing_sid = next((sid for sid, p in room['players'].items() if p['username'].lower() == username.lower()), None)
-        if existing_sid and existing_sid != request.sid:
-            player_data = room['players'].pop(existing_sid)
-            player_data['customImg'] = custom_img or player_data.get('customImg', '')
-            room['players'][request.sid] = player_data
-            if room['host'] == existing_sid:
-                room['host'] = request.sid
-        elif existing_sid == request.sid:
-            if custom_img:
-                room['players'][request.sid]['customImg'] = custom_img
-        else:
-            if len(room['players']) >= MAX_PLAYERS:
-                emit('error', {'msg': f'الغرفة مكتملة. الحد الأقصى {MAX_PLAYERS} لاعب'})
-                return
-            if username.lower() in used_names(token):
-                emit('name_taken', {'username': username, 'suggested': next_available_name(token, username)})
-                return
-            room['players'][request.sid] = {
-                'username': username,
-                'avatar': avatar,
-                'avatarType': avatar_type,
-                'customImg': custom_img,
-                'mic': False,
-                'speaking': False,
-                'alive': True,
-                'role': None,
-            }
-            if not room['host']:
-                room['host'] = request.sid
-            system_message(token, f'انضم {username} إلى الغرفة')
-        join_room(token)
-        touch_room(token)
-        emit('joined_ok', {
-            'token': token,
-            'is_host': request.sid == room['host'],
-            'room_name': room['room_name'],
-            'my_sid': request.sid,
-            'phase': room['game_phase'],
-            'started': room['started'],
-        })
-        sync_players(token)
-    except Exception as exc:
-        log.exception('join error: %s', exc)
-        emit('error', {'msg': 'تعذر الانضمام'})
-
-
-@socketio.on('disconnect')
-def handle_disconnect():
-    try:
-        for token, room in list(rooms.items()):
-            if request.sid not in room['players']:
-                continue
-            username = room['players'][request.sid]['username']
-            room['players'].pop(request.sid, None)
-            if room['host'] == request.sid:
-                room['host'] = next(iter(room['players']), None)
-            touch_room(token)
-            if not room['players']:
-                continue
-            system_message(token, f'غادر {username} الغرفة')
-            sync_players(token)
-            if room.get('started'):
-                winner = check_win(token)
-                if winner:
-                    end_game(token, winner)
-            break
-    except Exception as exc:
-        log.exception('disconnect error: %s', exc)
-
-
-@socketio.on('toggle_mic')
-def handle_mic(data):
-    token = (data.get('room') or '').upper()
-    room = rooms.get(token)
-    if not room or request.sid not in room['players']:
+def on_join(data):
+    token = (data.get('room') or '').strip().upper()
+    username = (data.get('username') or 'ضيف').strip()[:24]
+    custom_img = (data.get('customImg') or '').strip()
+    if not token:
         return
-    state = bool(data.get('state', False))
-    room['players'][request.sid]['mic'] = state
-    if not state:
-        room['players'][request.sid]['speaking'] = False
+    if token not in ROOMS:
+        ROOMS[token] = new_room(f'غرفة {token}')
+    room = ROOMS[token]
+    if request.sid not in room['players'] and len(room['players']) >= MAX_PLAYERS:
+        emit('error', {'msg': f'الحد الأقصى {MAX_PLAYERS} لاعب'})
+        return
+    existing_sid = next((sid for sid, p in room['players'].items() if p['username'].lower() == username.lower()), None)
+    if existing_sid and existing_sid != request.sid:
+        player = room['players'].pop(existing_sid)
+        room['players'][request.sid] = player
+        if room['host'] == existing_sid:
+            room['host'] = request.sid
+    elif request.sid not in room['players']:
+        if username.lower() in used_names(token):
+            emit('name_taken', {'username': username, 'suggested': next_name(token, username)})
+            return
+        room['players'][request.sid] = {
+            'username': username,
+            'customImg': custom_img,
+            'mic': False,
+            'speaking': False,
+            'alive': True,
+            'role': None,
+        }
+        if not room['host']:
+            room['host'] = request.sid
+        system_message(token, f'{username} دخل الغرفة')
+    else:
+        room['players'][request.sid]['customImg'] = custom_img
+    join_room(token)
+    emit('joined_ok', {
+        'token': token,
+        'is_host': request.sid == room['host'],
+        'room_name': room['room_name'],
+        'my_sid': request.sid,
+        'phase': room['game_phase'],
+        'started': room['started'],
+    })
     sync_players(token)
 
 
-@socketio.on('speaking')
-def handle_speaking(data):
+@socketio.on('disconnect')
+def on_disconnect():
+    for token in list(ROOMS.keys()):
+        room = ROOMS[token]
+        if request.sid in room['players']:
+            username = room['players'][request.sid]['username']
+            del room['players'][request.sid]
+            if room['host'] == request.sid:
+                room['host'] = next(iter(room['players']), None)
+            if not room['players']:
+                cleanup_rooms()
+            else:
+                system_message(token, f'{username} خرج من الغرفة')
+                sync_players(token)
+            break
+
+
+@socketio.on('toggle_mic')
+def on_toggle_mic(data):
     token = (data.get('room') or '').upper()
-    room = rooms.get(token)
+    room = ROOMS.get(token)
+    if not room or request.sid not in room['players']:
+        return
+    state = bool(data.get('state', False))
+    player = room['players'][request.sid]
+    changed = player.get('mic') != state
+    player['mic'] = state
+    if not state:
+        player['speaking'] = False
+    if changed:
+        sync_players(token)
+
+
+@socketio.on('speaking')
+def on_speaking(data):
+    token = (data.get('room') or '').upper()
+    room = ROOMS.get(token)
     if not room or request.sid not in room['players']:
         return
     player = room['players'][request.sid]
     if not player.get('mic'):
         return
-    player['speaking'] = bool(data.get('active', False))
-    sync_players(token)
+    active = bool(data.get('active', False))
+    if player.get('speaking') != active:
+        player['speaking'] = active
+        sync_players(token)
 
 
 @socketio.on('chat_msg')
-def handle_chat(data):
+def on_chat(data):
     token = (data.get('room') or '').upper()
     msg = (data.get('msg') or '').strip()[:500]
-    room = rooms.get(token)
-    if not room or not msg or request.sid not in room['players']:
+    room = ROOMS.get(token)
+    if not room or request.sid not in room['players'] or not msg:
         return
     player = room['players'][request.sid]
-    if room.get('started') and not player.get('alive', True):
-        emit('error', {'msg': 'اللاعب الخارج من اللعبة لا يرسل رسائل'})
+    if room['started'] and not player.get('alive', True):
+        emit('error', {'msg': 'اللاعب الميت لا يرسل رسائل'})
         return
-    broadcast(token, 'new_message', {
+    socketio.emit('new_message', {
         'type': 'player',
         'user': player['username'],
-        'avatar': player['avatar'],
-        'avatarType': player['avatarType'],
-        'customImg': player.get('customImg') or '',
+        'customImg': player.get('customImg', ''),
         'msg': msg,
-    })
+    }, room=token)
 
 
 @socketio.on('start_game')
-def handle_start_game(data):
+def on_start_game(data):
     token = (data.get('room') or '').upper()
-    room = rooms.get(token)
+    room = ROOMS.get(token)
     if not room:
         return
     if request.sid != room['host']:
         emit('error', {'msg': 'فقط الهوست يبدأ اللعبة'})
         return
     if len(room['players']) < MIN_PLAYERS:
-        emit('error', {'msg': f'العدد غير كاف. تحتاج إلى {MIN_PLAYERS} لاعبين على الأقل'})
+        emit('error', {'msg': f'لازم يكون في {MIN_PLAYERS} لاعبين على الأقل'})
         return
     assign_roles(token)
     room['started'] = True
@@ -541,143 +529,135 @@ def handle_start_game(data):
     room['votes'] = {}
     room['night_actions'] = {}
     room['protected_sid'] = None
-    room['updated_at'] = now_ts()
-    broadcast(token, 'game_started', {'phase': 'night', 'round': 1})
-    for sid, player in room['players'].items():
-        role = player['role']
-        socketio.emit('your_role', {'role': role, 'label': ROLES[role]['label'], 'color': ROLES[role]['color']}, room=sid)
+    socketio.emit('game_started', {'phase': 'night', 'round': 1}, room=token)
+    broadcast_role_cards(token)
     send_night_info(token)
-    system_message(token, 'بدأت اللعبة. مرحلة الليل')
     sync_players(token)
+    system_message(token, 'بدأت اللعبة')
 
 
 @socketio.on('night_action')
-def handle_night_action(data):
+def on_night_action(data):
     token = (data.get('room') or '').upper()
     target_sid = data.get('target_sid') or ''
-    room = rooms.get(token)
-    if not room or request.sid not in room['players']:
-        return
-    if not room.get('started') or room['game_phase'] != 'night':
+    room = ROOMS.get(token)
+    if not room or request.sid not in room['players'] or room.get('game_phase') != 'night':
         return
     role = room['players'][request.sid].get('role')
     if role == 'mafia':
         room['night_actions'][request.sid] = target_sid
-        emit('action_received', {'msg': 'تم تثبيت هدف المافيا'})
+        emit('action_received', {'msg': 'تم اختيار الهدف'})
     elif role == 'doctor':
         room['protected_sid'] = target_sid
-        emit('action_received', {'msg': 'تم اختيار اللاعب المحمي'})
+        emit('action_received', {'msg': 'تم اختيار الحماية'})
     elif role == 'detective' and target_sid in room['players']:
-        target_role = room['players'][target_sid]['role']
+        target_role = room['players'][target_sid].get('role', 'citizen')
+        room['night_actions'][request.sid] = target_sid
         emit('detective_result', {
             'username': room['players'][target_sid]['username'],
             'is_mafia': target_role == 'mafia',
             'role': ROLES[target_role]['label'],
         })
-        room['night_actions'][request.sid] = target_sid
-
-    mafia_sids = [sid for sid, p in room['players'].items() if p['alive'] and p['role'] == 'mafia']
-    doctor_sids = [sid for sid, p in room['players'].items() if p['alive'] and p['role'] == 'doctor']
-    detective_sids = [sid for sid, p in room['players'].items() if p['alive'] and p['role'] == 'detective']
-    mafia_done = (not mafia_sids) or any(sid in room['night_actions'] for sid in mafia_sids)
-    doctor_done = (not doctor_sids) or room['protected_sid'] is not None
-    detective_done = (not detective_sids) or any(sid in room['night_actions'] for sid in detective_sids)
+    mafia_sids = [sid for sid, p in room['players'].items() if p.get('alive', True) and p.get('role') == 'mafia']
+    mafia_done = mafia_sids and all(sid in room['night_actions'] for sid in mafia_sids)
+    doctor_needed = any(p.get('alive', True) and p.get('role') == 'doctor' for p in room['players'].values())
+    detective_needed = any(p.get('alive', True) and p.get('role') == 'detective' for p in room['players'].values())
+    doctor_done = (not doctor_needed) or room.get('protected_sid') is not None
+    detective_done = (not detective_needed) or any(room['players'][sid].get('role') == 'detective' and sid in room['night_actions'] for sid in room['players'])
     if mafia_done and doctor_done and detective_done:
         resolve_night(token)
 
 
-@socketio.on('force_night_end')
-def force_night(data):
-    token = (data.get('room') or '').upper()
-    room = rooms.get(token)
-    if room and request.sid == room['host'] and room['game_phase'] == 'night':
-        resolve_night(token)
-
-
 @socketio.on('start_vote')
-def handle_start_vote(data):
+def on_start_vote(data):
     token = (data.get('room') or '').upper()
-    room = rooms.get(token)
-    if not room or request.sid != room['host'] or room['game_phase'] != 'day':
+    room = ROOMS.get(token)
+    if not room or request.sid != room['host'] or room.get('game_phase') != 'day':
         return
     room['game_phase'] = 'voting'
     room['votes'] = {}
-    alive = [{'sid': sid, 'username': p['username']} for sid, p in room['players'].items() if p['alive']]
-    broadcast(token, 'phase_change', {'phase': 'voting', 'candidates': alive, 'round': room['game_round']})
+    candidates = [{'sid': sid, 'username': p['username']} for sid, p in room['players'].items() if p.get('alive', True)]
+    socketio.emit('phase_change', {'phase': 'voting', 'candidates': candidates}, room=token)
     system_message(token, 'بدأ التصويت')
 
 
 @socketio.on('cast_vote')
-def handle_vote(data):
+def on_cast_vote(data):
     token = (data.get('room') or '').upper()
     target_sid = data.get('target_sid') or ''
-    room = rooms.get(token)
-    if not room or request.sid not in room['players'] or room['game_phase'] != 'voting':
+    room = ROOMS.get(token)
+    if not room or room.get('game_phase') != 'voting' or request.sid not in room['players']:
         return
-    if not room['players'][request.sid].get('alive'):
-        emit('error', {'msg': 'اللاعب الخارج من اللعبة لا يصوت'})
+    if not room['players'][request.sid].get('alive', True):
+        emit('error', {'msg': 'الميت لا يصوت'})
         return
     room['votes'][request.sid] = target_sid
-    emit('vote_ack', {'msg': 'تم تسجيل صوتك'})
     counts = {}
-    for sid in room['votes'].values():
-        counts[sid] = counts.get(sid, 0) + 1
-    broadcast(token, 'vote_update', {'counts': counts})
-    if all(sid in room['votes'] for sid, p in room['players'].items() if p['alive']):
+    for _, choice in room['votes'].items():
+        counts[choice] = counts.get(choice, 0) + 1
+    socketio.emit('vote_update', {'counts': counts}, room=token)
+    emit('vote_ack', {'msg': 'تم تسجيل صوتك'})
+    alive = [sid for sid, p in room['players'].items() if p.get('alive', True)]
+    if all(sid in room['votes'] for sid in alive):
         resolve_vote(token)
 
 
-@socketio.on('force_vote_end')
-def force_vote(data):
+@socketio.on('force_night_end')
+def on_force_night_end(data):
     token = (data.get('room') or '').upper()
-    room = rooms.get(token)
-    if room and request.sid == room['host'] and room['game_phase'] == 'voting':
+    room = ROOMS.get(token)
+    if room and room.get('game_phase') == 'night' and request.sid == room['host']:
+        resolve_night(token)
+
+
+@socketio.on('force_vote_end')
+def on_force_vote_end(data):
+    token = (data.get('room') or '').upper()
+    room = ROOMS.get(token)
+    if room and room.get('game_phase') == 'voting' and request.sid == room['host']:
         resolve_vote(token)
 
 
 @socketio.on('reset_game')
-def handle_reset(data):
+def on_reset_game(data):
     token = (data.get('room') or '').upper()
-    room = rooms.get(token)
+    room = ROOMS.get(token)
     if not room or request.sid != room['host']:
         return
-    room.update({
-        'started': False,
-        'game_phase': 'waiting',
-        'game_round': 0,
-        'votes': {},
-        'night_actions': {},
-        'protected_sid': None,
-    })
-    for p in room['players'].values():
-        p['role'] = None
-        p['alive'] = True
-    broadcast(token, 'game_reset', {})
-    system_message(token, 'تمت إعادة الجولة إلى اللوبي')
+    room['started'] = False
+    room['game_phase'] = 'waiting'
+    room['game_round'] = 0
+    room['votes'] = {}
+    room['night_actions'] = {}
+    room['protected_sid'] = None
+    for player in room['players'].values():
+        player['alive'] = True
+        player['role'] = None
+        player['speaking'] = False
+    socketio.emit('game_reset', {}, room=token)
     sync_players(token)
 
 
 @socketio.on('webrtc_offer')
-def handle_webrtc_offer(data):
+def on_webrtc_offer(data):
     target = data.get('target')
     if target:
         socketio.emit('webrtc_offer', {'from': request.sid, 'sdp': data.get('sdp')}, room=target)
 
 
 @socketio.on('webrtc_answer')
-def handle_webrtc_answer(data):
+def on_webrtc_answer(data):
     target = data.get('target')
     if target:
         socketio.emit('webrtc_answer', {'from': request.sid, 'sdp': data.get('sdp')}, room=target)
 
 
 @socketio.on('webrtc_ice')
-def handle_webrtc_ice(data):
+def on_webrtc_ice(data):
     target = data.get('target')
     if target:
         socketio.emit('webrtc_ice', {'from': request.sid, 'candidate': data.get('candidate')}, room=target)
 
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', '5000'))
-    socketio.run(app, host='0.0.0.0', port=port, debug=False)
+    socketio.run(app, host='0.0.0.0', port=5000, debug=False)

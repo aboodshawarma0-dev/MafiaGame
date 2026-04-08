@@ -1,159 +1,114 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>{{ room_name }} — OMERTÀ</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Orbitron:wght@700;800&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/static/css/room.css" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ room_name }} - 𝐎𝐌𝐄𝐑𝐓𝐀</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;800&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/room.css" />
+  <script>
+    window.ROOM_TOKEN = {{ token | tojson }};
+    window.ROOM_NAME = {{ room_name | tojson }};
+  </script>
 </head>
-<body>
-<div class="room-page">
-  <div class="room-frame"></div>
-  <div class="room-glow"></div>
-  <div class="drawer-backdrop" id="drawerBackdrop"></div>
-
-  <aside class="drawer info-drawer" id="infoDrawer" aria-hidden="true">
-    <div class="drawer-head">
-      <div>
-        <p class="drawer-kicker">قائمة الغرفة</p>
-        <h2>تفاصيل الجولة</h2>
+<body class="room-body">
+  <div class="room-shell">
+    <header class="top-card ornament">
+      <div class="brand-block">
+        <div class="eyebrow">mafia voice arena</div>
+        <h1>𝐎𝐌𝐄𝐑𝐓𝐀</h1>
+        <p id="phaseHint">اللوبي · تجهيز اللاعبين</p>
       </div>
-      <button class="icon-btn" id="closeInfoBtn" type="button"><img src="/static/svg/icons/close.svg" alt="close"></button>
-    </div>
-    <div class="drawer-body">
-      <div class="info-stat"><span>اسم الغرفة</span><strong id="infoRoomName">{{ room_name }}</strong></div>
-      <div class="info-stat"><span>كود الغرفة</span><strong id="infoRoomCode">{{ token }}</strong></div>
-      <div class="info-stat"><span>الحالة الحالية</span><strong id="infoPhase">اللوبي</strong></div>
-      <div class="info-stat"><span>الصوت</span><strong id="infoVoiceMode">جميع اللاعبين يسمعون بعضهم</strong></div>
-      <div class="drawer-section">
-        <div class="section-title-line"><span></span><h3>اللاعبون</h3><span></span></div>
-        <div class="drawer-players" id="drawerPlayers"></div>
-      </div>
-    </div>
-  </aside>
-
-  <aside class="drawer chat-drawer" id="chatDrawer" aria-hidden="true">
-    <div class="drawer-head">
-      <div>
-        <p class="drawer-kicker">محادثة الغرفة</p>
-        <h2>الدردشة</h2>
-      </div>
-      <button class="icon-btn" id="closeChatBtn" type="button"><img src="/static/svg/icons/close.svg" alt="close"></button>
-    </div>
-    <div class="drawer-body chat-body">
-      <div class="chat-messages" id="chatMessages"></div>
-      <div class="chat-compose">
-        <input id="chatInput" type="text" placeholder="اكتب رسالة قصيرة" maxlength="500" autocomplete="off" />
-        <button class="icon-btn solid" id="sendBtn" type="button"><img src="/static/svg/icons/send.svg" alt="send"></button>
-      </div>
-    </div>
-  </aside>
-
-  <main class="room-shell">
-    <header class="topbar card-shell">
-      <div class="topbar-main">
-        <div class="brand-block">
-          <div class="brand-line"></div>
-          <div>
-            <h1>OMERTÀ</h1>
-            <p id="topSubtitle">اللوبي — تجهيز اللاعبين</p>
-          </div>
-        </div>
-        <div class="room-meta">
-          <div class="room-chip"><img src="/static/svg/icons/players.svg" alt="players"><strong id="userCount">0</strong><span>/12</span></div>
-          <div class="room-chip room-code"><img src="/static/svg/icons/room.svg" alt="room"><strong id="topRoomCode">{{ token }}</strong></div>
-        </div>
-      </div>
-      <div class="topbar-actions">
-        <button class="main-action" id="startGameBtn" type="button"><img src="/static/svg/icons/start.svg" alt="start"><span>ابدأ اللعبة</span></button>
-        <button class="icon-btn" id="copyCodeBtn" type="button"><img src="/static/svg/icons/copy.svg" alt="copy"></button>
-        <button class="icon-btn" id="openChatBtn" type="button"><img src="/static/svg/icons/chat.svg" alt="chat"></button>
-        <button class="icon-btn" id="openInfoBtn" type="button"><img src="/static/svg/icons/list.svg" alt="list"></button>
+      <div class="top-actions">
+        <div class="code-pill ornament"><span id="roomCodeText">{{ token }}</span></div>
+        <div class="count-pill ornament"><img src="/static/svg/icon-users.svg" alt="users" /><span id="playerCount">0 / 12</span></div>
       </div>
     </header>
 
-    <section class="board card-shell">
-      <div class="board-head">
-        <div>
-          <p class="drawer-kicker">Arena of Silence</p>
-          <h2>ساحة المافيا</h2>
-          <p id="boardDesc">تصميم ذهبي أسود مع بطاقات انتظار واضحة وبدون مربعات أرقام.</p>
-        </div>
-        <div class="board-actions">
-          <button class="ghost-action" id="copyCodeInline" type="button"><img src="/static/svg/icons/copy.svg" alt="copy"><span>نسخ الكود</span></button>
-        </div>
+    <section class="action-strip ornament">
+      <button class="start-btn" id="startGameBtn" type="button"><img src="/static/svg/icon-start.svg" alt="start" />ابدأ اللعبة</button>
+      <div class="inline-buttons">
+        <button class="mini-btn" id="copyBtn" type="button"><img src="/static/svg/icon-copy.svg" alt="copy" />نسخ الكود</button>
+        <button class="mini-btn" id="chatBtn" type="button"><img src="/static/svg/icon-chat.svg" alt="chat" />المحادثة</button>
+        <button class="mini-btn" id="listBtn" type="button"><img src="/static/svg/icon-list.svg" alt="list" />قائمة اللاعبين</button>
+        <button class="mini-btn mic-btn" id="micBtn" type="button"><img id="micIcon" src="/static/svg/icon-mic-off.svg" alt="mic" />الميكروفون</button>
       </div>
-
-      <div class="waiting-panel">
-        <div>
-          <p class="drawer-kicker">لوحة الانتظار</p>
-          <h3 id="waitingTitle">بانتظار بدء الجولة</h3>
-          <p id="waitingText">يتم تجهيز اللاعبين والصوت قبل بداية اللعبة.</p>
-        </div>
-        <div class="phase-badge" id="phaseBadge">اللوبي</div>
-      </div>
-
-      <div class="status-banner" id="statusBanner">
-        <div class="status-role hidden" id="roleBadgeWrap">
-          <img id="roleBadgeIcon" src="/static/svg/roles/citizen.svg" alt="role">
-          <div>
-            <strong>دورك الحالي</strong>
-            <span id="roleBadgeLabel">غير محدد</span>
-          </div>
-        </div>
-        <div class="status-inline"><strong id="voiceModeInline">جميع اللاعبين يسمعون بعضهم</strong></div>
-        <div class="host-controls" id="hostControls">
-          <button class="ghost-action small hidden-by-js" id="startVoteBtn" type="button"><img src="/static/svg/icons/start.svg" alt="start"><span>ابدأ التصويت</span></button>
-          <button class="ghost-action small hidden-by-js" id="forceNightBtn" type="button"><img src="/static/svg/icons/start.svg" alt="start"><span>إنهاء الليل</span></button>
-          <button class="ghost-action small hidden-by-js" id="resetGameBtn" type="button"><img src="/static/svg/icons/room.svg" alt="reset"><span>إعادة الجولة</span></button>
-        </div>
-      </div>
-
-      <div class="night-action hidden" id="nightActionCard">
-        <div class="section-title-line"><span></span><h3 id="nightActionTitle">اختيار ليلي</h3><span></span></div>
-        <p id="nightActionSub">سيظهر هذا القسم فقط عندما تحتاج إلى تنفيذ قدرة خاصة.</p>
-        <div id="nightTargets" class="night-targets"></div>
-        <button class="main-action slim" id="confirmNightBtn" type="button" disabled><span>تأكيد الاختيار</span></button>
-      </div>
-
-      <div class="vote-action hidden" id="voteCard">
-        <div class="section-title-line"><span></span><h3>لوحة التصويت</h3><span></span></div>
-        <p id="voteStatusText">اختر اللاعب الذي تشك فيه.</p>
-        <div id="voteTargets" class="vote-targets"></div>
-      </div>
-
-      <div class="players-grid" id="playersGrid"></div>
-      <div class="empty-state hidden" id="emptyState">لا يوجد لاعبون داخل الغرفة بعد.</div>
     </section>
 
-    <footer class="controls card-shell">
-      <button class="control-btn" id="toggleMicBtn" type="button"><img id="micIcon" src="/static/svg/icons/mic-off.svg" alt="mic"><span>الميكروفون</span></button>
-      <button class="control-btn" id="bottomChatBtn" type="button"><img src="/static/svg/icons/chat.svg" alt="chat"><span>المحادثة</span></button>
-      <button class="control-btn" id="bottomInfoBtn" type="button"><img src="/static/svg/icons/info.svg" alt="info"><span>القائمة</span></button>
-      <button class="control-btn danger" id="leaveBtn" type="button"><img src="/static/svg/icons/leave.svg" alt="leave"><span>خروج</span></button>
-    </footer>
-  </main>
+    <main class="stage-card ornament">
+      <section class="waiting-panel ornament">
+        <div class="section-kicker">arena of silence</div>
+        <h2>بانتظار بدء الجولة</h2>
+        <p id="voiceScopeLabel">الجميع يسمعون الجميع</p>
+      </section>
+      <section class="voice-grid" id="voiceGrid"></section>
+      <div class="empty-state ornament hidden" id="emptyState">لا يوجد لاعبين داخل الغرفة بعد.</div>
+    </main>
 
-  <div class="modal-backdrop" id="modalBackdrop"></div>
-  <section class="modal-card" id="modalCard" aria-hidden="true">
-    <div class="modal-head">
-      <h3 id="modalTitle">تنبيه</h3>
-      <button class="icon-btn" id="closeModalBtn" type="button"><img src="/static/svg/icons/close.svg" alt="close"></button>
+    <div class="backdrop hidden" id="panelBackdrop"></div>
+
+    <aside class="side-panel hidden" id="playersPanel">
+      <div class="panel-head"><h3>قائمة اللاعبين</h3><button class="close-btn" data-close="players">×</button></div>
+      <div class="panel-body" id="playersPanelBody"></div>
+    </aside>
+
+    <aside class="side-panel hidden" id="chatPanel">
+      <div class="panel-head"><h3>المحادثة</h3><button class="close-btn" data-close="chat">×</button></div>
+      <div class="panel-body chat-body" id="chatMessages"></div>
+      <div class="chat-compose">
+        <input id="chatInput" type="text" maxlength="500" placeholder="اكتب رسالة" />
+        <button class="mini-btn" id="sendChatBtn" type="button">إرسال</button>
+      </div>
+    </aside>
+
+    <div class="role-cinematic hidden" id="roleCardOverlay">
+      <div class="role-card-shell">
+        <div class="role-card-front ornament" id="roleCardFront">
+          <div class="section-kicker">your role</div>
+          <h3>دورك</h3>
+          <img id="roleCardIcon" src="/static/svg/role-citizen.svg" alt="role" />
+          <h2 id="roleCardName">مواطن</h2>
+        </div>
+      </div>
     </div>
-    <p id="modalText">رسالة توضيحية.</p>
-    <div class="modal-actions"><button class="main-action slim" id="modalOkBtn" type="button"><span>حسناً</span></button></div>
-  </section>
+
+    <div class="modal-backdrop hidden" id="minPlayersModal">
+      <div class="modal-card ornament">
+        <div class="section-kicker">warning</div>
+        <h3>عدد اللاعبين غير كاف</h3>
+        <p>لازم يكون في 4 لاعبين على الأقل قبل بدء اللعبة.</p>
+        <button class="primary-btn small" id="closeMinPlayersModal" type="button">تمام</button>
+      </div>
+    </div>
+
+    <div class="phase-overlay hidden" id="phaseOverlay">
+      <div class="phase-panel ornament">
+        <div class="section-kicker" id="phaseMini">phase</div>
+        <h2 id="phaseTitle">الليل</h2>
+        <p id="phaseText">ابدأ التنفيذ</p>
+        <div class="night-targets hidden" id="nightTargetsWrap">
+          <div class="target-grid" id="nightTargets"></div>
+          <button class="primary-btn small" id="nightConfirmBtn" type="button" disabled>تأكيد الاختيار</button>
+        </div>
+        <div class="vote-targets hidden" id="voteTargetsWrap">
+          <div class="target-grid" id="voteTargets"></div>
+        </div>
+        <div class="results-grid hidden" id="resultsGrid"></div>
+        <div class="host-phase-actions">
+          <button class="ghost-btn hidden" id="startVoteBtn" type="button">بدء التصويت</button>
+          <button class="ghost-btn hidden" id="forceNightBtn" type="button">إنهاء الليل</button>
+          <button class="ghost-btn hidden" id="forceVoteBtn" type="button">إنهاء التصويت</button>
+          <button class="ghost-btn hidden" id="resetGameBtn" type="button">لعبة جديدة</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <div class="toast-stack" id="toastStack"></div>
-</div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
-<script>
-window.ROOM_TOKEN = '{{ token }}';
-window.ROOM_NAME = '{{ room_name }}';
-</script>
-<script src="/static/js/room.js"></script>
+
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script src="/static/js/room.js"></script>
 </body>
 </html>

@@ -1,230 +1,177 @@
-const AVATARS = [
-  { id: "unknown", label: "الغامض", src: "/static/svg/avatar-unknown.svg" },
-  { id: "raven", label: "ريفن", src: "/static/svg/avatar-raven.svg" },
-  { id: "medic", label: "ميديك", src: "/static/svg/avatar-medic.svg" },
-  { id: "warden", label: "واردن", src: "/static/svg/avatar-warden.svg" },
-  { id: "oracle", label: "أوراكل", src: "/static/svg/avatar-oracle.svg" },
-  { id: "smith", label: "سميث", src: "/static/svg/avatar-smith.svg" },
-  { id: "velvet", label: "فيلفت", src: "/static/svg/avatar-velvet.svg" }
-];
-
-const $ = id => document.getElementById(id);
 const state = {
-  selected: localStorage.getItem("omerta_char") || "unknown",
-  customImg: localStorage.getItem("omerta_custom") || "",
-  pendingJoin: null,
-  currentTab: "create"
+  customImg: localStorage.getItem('omerta_custom') || '',
 };
 
-function setFeedback(message = "") {
-  $("feedback").textContent = message;
+const $ = (id) => document.getElementById(id);
+
+function showFeedback(msg, ok = false) {
+  const el = $('feedback');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.color = ok ? '#d4af37' : '#ffd3d3';
 }
 
-function currentAvatarSrc() {
-  if (state.customImg) return state.customImg;
-  return (AVATARS.find(item => item.id === state.selected) || AVATARS[0]).src;
+function syncPreview() {
+  $('avatarPreview').src = state.customImg || '/static/img/placeholder.png';
 }
 
-function renderPreview() {
-  $("avatarPreview").innerHTML = `<img src="${currentAvatarSrc()}" alt="avatar" />`;
+function saveProfile(name) {
+  localStorage.setItem('omerta_user', name);
+  if (state.customImg) localStorage.setItem('omerta_custom', state.customImg);
+  else localStorage.removeItem('omerta_custom');
 }
 
-function renderGrid() {
-  const grid = $("avatarGrid");
-  grid.innerHTML = "";
-  AVATARS.forEach(item => {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = `avatar-btn${!state.customImg && state.selected === item.id ? " active" : ""}`;
-    btn.innerHTML = `<img src="${item.src}" alt="${item.label}" />`;
-    btn.addEventListener("click", () => {
-      state.selected = item.id;
-      state.customImg = "";
-      localStorage.removeItem("omerta_custom");
-      renderGrid();
-      renderPreview();
-    });
-    grid.appendChild(btn);
-  });
-}
-
-function saveIdentity(name) {
-  localStorage.setItem("omerta_user", name);
-  localStorage.setItem("omerta_char", state.selected);
-  if (state.customImg) {
-    localStorage.setItem("omerta_avatarType", "custom");
-    localStorage.setItem("omerta_custom", state.customImg);
-  } else {
-    localStorage.setItem("omerta_avatarType", "builtin");
-    localStorage.removeItem("omerta_custom");
+function createEmbers() {
+  const holder = $('embers');
+  if (!holder) return;
+  for (let i = 0; i < 22; i += 1) {
+    const ember = document.createElement('span');
+    ember.className = 'ember';
+    const size = 8 + Math.random() * 26;
+    ember.style.width = `${size}px`;
+    ember.style.height = `${size}px`;
+    ember.style.left = `${Math.random() * 100}%`;
+    ember.style.bottom = `${-10 - Math.random() * 50}px`;
+    ember.style.animationDuration = `${9 + Math.random() * 12}s`;
+    ember.style.animationDelay = `${Math.random() * 7}s`;
+    holder.appendChild(ember);
   }
 }
 
-function switchTab(tab) {
-  state.currentTab = tab;
-  $("tabCreate").classList.toggle("active", tab === "create");
-  $("tabJoin").classList.toggle("active", tab === "join");
-  $("paneCreate").classList.toggle("active", tab === "create");
-  $("paneJoin").classList.toggle("active", tab === "join");
+async function updateStats() {
+  try {
+    const [statsRes, roomsRes] = await Promise.all([fetch('/api/stats'), fetch('/api/recent_rooms')]);
+    const stats = await statsRes.json();
+    const rooms = await roomsRes.json();
+    $('statPlayers').textContent = stats.players || 0;
+    $('statRooms').textContent = stats.rooms || 0;
+    renderRecentRooms(rooms.rooms || []);
+  } catch (err) {
+    renderRecentRooms([]);
+  }
+}
+
+function renderRecentRooms(rooms) {
+  const list = $('recentRooms');
+  if (!list) return;
+  list.innerHTML = '';
+  if (!rooms.length) {
+    const empty = document.createElement('div');
+    empty.className = 'recent-room';
+    empty.innerHTML = '<div><strong>لا توجد غرف حديثة</strong><span>أنشئ غرفة جديدة وابدأ الجولة</span></div>';
+    list.appendChild(empty);
+    return;
+  }
+  rooms.forEach((room) => {
+    const item = document.createElement('article');
+    item.className = 'recent-room';
+    item.innerHTML = `
+      <div>
+        <strong>${room.room_name}</strong>
+        <span>${room.players} لاعب · ${room.started ? 'داخل اللعبة' : 'بانتظار اللاعبين'}</span>
+      </div>
+      <button class="room-join-btn" data-token="${room.token}" type="button">دخول</button>
+    `;
+    item.querySelector('button').addEventListener('click', () => {
+      $('roomCode').value = room.token;
+      joinRoom();
+    });
+    list.appendChild(item);
+  });
+}
+
+async function ensureValidName() {
+  const username = ($('username').value || '').trim();
+  if (!username) {
+    showFeedback('اكتب اسم اللاعب أولاً');
+    return null;
+  }
+  return username;
 }
 
 async function createRoom() {
-  const name = ($("username").value || "").trim();
-  if (!name) {
-    setFeedback("اكتب اسمك أولاً");
-    return;
-  }
-  setFeedback("جارٍ إنشاء الغرفة...");
+  const username = await ensureValidName();
+  if (!username) return;
+  const roomName = ($('roomNameInput').value || '').trim();
+  showFeedback('جارٍ إنشاء الغرفة...', true);
   try {
-    const roomName = ($("roomNameInput").value || "").trim();
-    const response = await fetch("/create_room", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ room_name: roomName })
+    const res = await fetch('/create_room', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ room_name: roomName }),
     });
-    const data = await response.json();
-    if (!data.success) throw new Error();
-    saveIdentity(name);
+    const data = await res.json();
+    saveProfile(username);
     location.href = `/room/${data.room_id}`;
-  } catch {
-    setFeedback("تعذر إنشاء الغرفة الآن");
+  } catch (err) {
+    showFeedback('تعذر إنشاء الغرفة');
   }
 }
 
-async function joinRoom(tokenFromCard = "") {
-  const name = ($("username").value || "").trim();
-  const token = (tokenFromCard || $("roomCode").value || "").trim().toUpperCase();
-  if (!name) {
-    setFeedback("اكتب اسمك أولاً");
+async function joinRoom() {
+  const username = await ensureValidName();
+  if (!username) return;
+  const code = ($('roomCode').value || '').trim().toUpperCase();
+  if (!code) {
+    showFeedback('اكتب كود الغرفة');
     return;
   }
-  if (token.length < 4) {
-    setFeedback("أدخل كود غرفة صحيح");
-    return;
-  }
-  setFeedback("جارٍ التحقق من الغرفة...");
+  showFeedback('جارٍ التحقق من الغرفة...', true);
   try {
-    const roomRes = await fetch(`/room_exists/${token}`);
+    const roomRes = await fetch(`/room_exists/${code}`);
     const roomData = await roomRes.json();
     if (!roomData.exists) {
-      setFeedback("الغرفة غير موجودة");
+      showFeedback('الغرفة غير موجودة');
       return;
     }
-    if (roomData.is_full) {
-      setFeedback("الغرفة ممتلئة حالياً");
-      return;
-    }
-    const nameRes = await fetch("/check_name", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token, username: name })
+    const nameCheck = await fetch('/check_name', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: code, username }),
     });
-    const nameData = await nameRes.json();
+    const nameData = await nameCheck.json();
     if (nameData.taken) {
-      state.pendingJoin = { token, suggested: nameData.suggested };
-      $("suggestedName").textContent = nameData.suggested;
-      $("nameModal").classList.remove("hidden");
-      setFeedback("");
+      showFeedback(`الاسم مستخدم، جرّب: ${nameData.suggested}`);
       return;
     }
-    saveIdentity(name);
-    location.href = `/room/${token}`;
-  } catch {
-    setFeedback("تعذر الاتصال بالسيرفر");
+    saveProfile(username);
+    location.href = `/room/${code}`;
+  } catch (err) {
+    showFeedback('تعذر الانضمام للغرفة');
   }
 }
 
-function bindRoomCardButtons() {
-  document.querySelectorAll("[data-room-token]").forEach(btn => {
-    btn.addEventListener("click", () => joinRoom(btn.dataset.roomToken));
-  });
-}
-
-async function refreshRooms() {
-  try {
-    const [statsRes, roomsRes] = await Promise.all([fetch("/api/stats"), fetch("/api/rooms_recent")]);
-    const stats = await statsRes.json();
-    const rooms = await roomsRes.json();
-    $("statPlayers").textContent = stats.players || 0;
-    $("statRooms").textContent = stats.rooms || 0;
-
-    const wrap = $("recentRooms");
-    wrap.innerHTML = "";
-    const list = rooms.rooms || [];
-    if (!list.length) {
-      wrap.innerHTML = `<div class="room-empty">لا توجد غرف حديثة بعد. أنشئ أول غرفة الآن.</div>`;
+document.addEventListener('DOMContentLoaded', () => {
+  createEmbers();
+  syncPreview();
+  const savedName = localStorage.getItem('omerta_user');
+  if (savedName) $('username').value = savedName;
+  $('avatarInput').addEventListener('change', (ev) => {
+    const file = ev.target.files && ev.target.files[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      showFeedback('الصورة أكبر من 2MB');
       return;
     }
-
-    list.forEach(room => {
-      const card = document.createElement("article");
-      card.className = "room-card";
-      card.innerHTML = `
-        <div class="room-head">
-          <div>
-            <div class="room-name">${room.room_name}</div>
-            <div class="room-code">${room.token}</div>
-          </div>
-          <button class="primary-btn" type="button" data-room-token="${room.token}">دخول</button>
-        </div>
-        <div class="room-chip-row">
-          <span class="room-chip"><img src="/static/svg/players.svg" alt="players" /> ${room.players}/${room.capacity}</span>
-          <span class="room-chip"><img src="/static/svg/room.svg" alt="room" /> ${room.started ? "جولة جارية" : "بانتظار اللاعبين"}</span>
-          <span class="room-chip"><img src="/static/svg/cards.svg" alt="cards" /> آخر 24 ساعة</span>
-        </div>`;
-      wrap.appendChild(card);
-    });
-    bindRoomCardButtons();
-  } catch {
-    $("recentRooms").innerHTML = `<div class="room-empty">تعذر تحميل الغرف الآن.</div>`;
-  }
-}
-
-function closeNameModal() {
-  $("nameModal").classList.add("hidden");
-}
-
-function useSuggestedName() {
-  if (!state.pendingJoin) return;
-  $("username").value = state.pendingJoin.suggested;
-  saveIdentity(state.pendingJoin.suggested);
-  location.href = `/room/${state.pendingJoin.token}`;
-}
-
-function handleUpload(event) {
-  const file = event.target.files?.[0];
-  if (!file) return;
-  if (file.size > 2 * 1024 * 1024) {
-    setFeedback("الصورة أكبر من 2MB");
-    return;
-  }
-  const reader = new FileReader();
-  reader.onload = () => {
-    state.customImg = reader.result;
-    renderPreview();
-    renderGrid();
-  };
-  reader.readAsDataURL(file);
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-  const storedName = localStorage.getItem("omerta_user");
-  if (storedName) $("username").value = storedName;
-  renderGrid();
-  renderPreview();
-  refreshRooms();
-  setInterval(refreshRooms, 8000);
-
-  $("tabCreate").addEventListener("click", () => switchTab("create"));
-  $("tabJoin").addEventListener("click", () => switchTab("join"));
-  $("createRoomBtn").addEventListener("click", createRoom);
-  $("joinRoomBtn").addEventListener("click", () => joinRoom());
-  $("roomCode").addEventListener("input", event => {
-    event.target.value = event.target.value.toUpperCase();
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      state.customImg = e.target.result;
+      syncPreview();
+      showFeedback('تم حفظ الصورة', true);
+    };
+    reader.readAsDataURL(file);
   });
-  $("imgUpload").addEventListener("change", handleUpload);
-  $("refreshRoomsBtn").addEventListener("click", refreshRooms);
-  $("closeNameModal").addEventListener("click", closeNameModal);
-  $("cancelSuggestedBtn").addEventListener("click", closeNameModal);
-  $("useSuggestedBtn").addEventListener("click", useSuggestedName);
+  $('clearAvatarBtn').addEventListener('click', () => {
+    state.customImg = '';
+    syncPreview();
+    showFeedback('تمت إزالة الصورة', true);
+  });
+  $('refreshRoomsBtn').addEventListener('click', updateStats);
+  $('createRoomBtn').addEventListener('click', createRoom);
+  $('joinRoomBtn').addEventListener('click', joinRoom);
+  $('roomCode').addEventListener('input', (ev) => {
+    ev.target.value = ev.target.value.toUpperCase();
+  });
+  updateStats();
+  setInterval(updateStats, 15000);
 });
