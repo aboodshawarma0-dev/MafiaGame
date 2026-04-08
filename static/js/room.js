@@ -3,6 +3,7 @@ const ROOM_NAME = window.ROOM_NAME || '';
 const USERNAME = localStorage.getItem('omerta_user') || 'ضيف';
 const CUSTOM_IMG = localStorage.getItem('omerta_custom') || '';
 const PLACEHOLDER = '/static/img/placeholder.png';
+const SPEAKER_ICON = '/static/svg/icon-speaker.svg';
 const socket = io({ transports: ['websocket', 'polling'], reconnection: true, reconnectionAttempts: Infinity, timeout: 20000 });
 
 const state = {
@@ -77,9 +78,11 @@ function patchTop() {
   $('phaseHint').textContent = ({ waiting: 'اللوبي · تجهيز اللاعبين', night: 'الليل · المافيا تتحرك', day: 'النهار · النقاش مفتوح', voting: 'التصويت · اختَر المتهم', results: 'انتهت الجولة' })[state.phase] || 'اللوبي';
   $('voiceScopeLabel').textContent = ({ all: 'الجميع يسمعون الجميع', mafia: 'الآن المافيا فقط تسمع بعضها', silent: 'الصوت العام متوقف مؤقتاً' })[state.voiceScope] || 'الجميع يسمعون الجميع';
   const start = $('startGameBtn');
-  start.disabled = !state.isHost || state.phase !== 'waiting' || state.players.length < 4;
-  start.style.opacity = start.disabled ? '0.55' : '1';
+  start.disabled = !state.isHost || state.phase !== 'waiting';
+  start.classList.toggle('soft-disabled', state.isHost && state.phase === 'waiting' && state.players.length < 4);
+  start.setAttribute('aria-disabled', String(start.disabled || state.players.length < 4));
 }
+
 
 function renderPlayers() {
   const grid = $('voiceGrid');
@@ -87,22 +90,35 @@ function renderPlayers() {
   grid.innerHTML = '';
   if (!state.players.length) {
     empty.classList.remove('hidden');
+    patchTop();
     return;
   }
   empty.classList.add('hidden');
   state.players.forEach((player) => {
     const card = document.createElement('article');
+    const talkState = player.speaking ? 'يتكلم الآن' : 'هادئ';
     card.className = `player-card ornament ${player.speaking ? 'speaking' : ''} ${!player.alive ? 'dead' : ''} ${player.sid === state.mySid ? 'me' : ''}`;
-    const speakingBadge = player.speaking ? '<span class="badge speaking">يتكلم الآن</span>' : '<span class="badge">هادئ</span>';
-    const micBadge = player.mic ? '' : '<span class="badge muted">صامت</span>';
+    const micBadge = `<span class="badge ${player.mic ? 'live' : 'muted'}">${player.mic ? 'الميكروفون مفتوح' : 'الميكروفون مغلق'}</span>`;
     const hostBadge = player.is_host ? '<span class="badge host">هوست</span>' : '';
-    const deadBadge = !player.alive ? '<span class="badge dead">ميت</span>' : '';
+    const deadBadge = !player.alive ? '<span class="badge dead">خارج الجولة</span>' : '';
+    const stateBadge = `<span class="badge ${player.speaking ? 'speaking' : ''}">${talkState}</span>`;
     card.innerHTML = `
-      <div class="player-avatar-wrap">
-        <img class="player-avatar" src="${avatarOf(player)}" alt="${esc(player.username)}" />
-        <div class="player-name">${esc(player.username)}</div>
+      <div class="voice-row-shell">
+        <div class="player-avatar-wrap ${player.speaking ? 'active' : ''}">
+          <img class="player-avatar" src="${avatarOf(player)}" alt="${esc(player.username)}" />
+        </div>
+        <div class="player-info">
+          <div class="voice-meta-line">
+            <img class="voice-mode-icon" src="${SPEAKER_ICON}" alt="speaker" />
+            <span>منظومة الصوت</span>
+          </div>
+          <div class="player-name-line">
+            <strong class="player-name">${esc(player.username)}</strong>
+            ${player.sid === state.mySid ? '<span class="self-chip">أنت</span>' : ''}
+          </div>
+          <div class="player-status">${stateBadge}${micBadge}${hostBadge}${deadBadge}</div>
+        </div>
       </div>
-      <div class="player-status">${speakingBadge}${micBadge}${hostBadge}${deadBadge}</div>
     `;
     grid.appendChild(card);
   });
@@ -110,22 +126,27 @@ function renderPlayers() {
   patchTop();
 }
 
+
 function renderPlayersPanel() {
   const body = $('playersPanelBody');
   body.innerHTML = '';
   state.players.forEach((player) => {
     const row = document.createElement('div');
-    row.className = 'panel-player';
+    row.className = `panel-player ${player.speaking ? 'speaking' : ''}`;
     row.innerHTML = `
-      <img src="${avatarOf(player)}" alt="${esc(player.username)}" />
-      <div>
+      <div class="panel-player-avatar ${player.speaking ? 'active' : ''}">
+        <img src="${avatarOf(player)}" alt="${esc(player.username)}" />
+      </div>
+      <div class="panel-player-copy">
+        <div class="panel-topline"><img class="voice-mode-icon small" src="${SPEAKER_ICON}" alt="speaker" /><span>${player.speaking ? 'يتكلم الآن' : 'هادئ'}</span></div>
         <strong>${esc(player.username)}</strong>
-        <div>${player.speaking ? 'يتكلم الآن' : 'هادئ'}${player.is_host ? ' · هوست' : ''}</div>
+        <div>${player.mic ? 'المايك مفتوح' : 'المايك مغلق'}${player.is_host ? ' · هوست' : ''}</div>
       </div>
     `;
     body.appendChild(row);
   });
 }
+
 
 function appendChatMessage(data) {
   const box = $('chatMessages');
@@ -321,7 +342,7 @@ function detectSpeaking() {
     }
     const volume = Math.sqrt(sum / buf.length);
     const now = performance.now();
-    if (volume > 7.4) holdUntil = now + 180;
+    if (volume > 5.6) holdUntil = now + 120;
     const active = now < holdUntil;
     if (active !== lastSent) {
       lastSent = active;
@@ -332,6 +353,7 @@ function detectSpeaking() {
   };
   tick();
 }
+
 
 function getOrCreatePeer(remoteSid) {
   if (peers[remoteSid]) return peers[remoteSid];
@@ -410,12 +432,14 @@ function showMinPlayersModal() {
 }
 
 function startGame() {
+  if (!state.isHost || state.phase !== 'waiting') return;
   if (state.players.length < 4) {
     showMinPlayersModal();
     return;
   }
   socket.emit('start_game', { room: TOKEN });
 }
+
 
 function bindControls() {
   $('copyBtn').addEventListener('click', copyCode);
