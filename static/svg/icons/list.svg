@@ -1,0 +1,33 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="gold_list" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFF4C2"/>
+      <stop offset="0.45" stop-color="#D8B15B"/>
+      <stop offset="1" stop-color="#8D6322"/>
+    </linearGradient>
+    <linearGradient id="shadow_list" x1="12" y1="12" x2="52" y2="52" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0B0B10"/>
+      <stop offset="1" stop-color="#1B1723"/>
+    </linearGradient>
+    <filter id="glow_list" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="1.8" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect x="6" y="6" width="52" height="52" rx="18" fill="url(#shadow_list)" stroke="url(#gold_list)" stroke-width="1.5"/>
+  <rect x="10" y="10" width="44" height="44" rx="14" fill="#0E0D14" opacity="0.78"/>
+  <path d="M16 20C22 12 42 12 48 20" stroke="url(#gold_list)" stroke-width="1.2" opacity="0.5"/>
+  <path d="M16 44C22 52 42 52 48 44" stroke="url(#gold_list)" stroke-width="1.2" opacity="0.28"/>
+  <g filter="url(#glow_list)">
+    <rect x="18" y="18" width="28" height="28" rx="6" stroke="url(#gold_list)" stroke-width="2.4" fill="#14121A"/>
+    <circle cx="24" cy="25" r="1.8" fill="#FFF4C2"/>
+    <circle cx="24" cy="32" r="1.8" fill="#FFF4C2"/>
+    <circle cx="24" cy="39" r="1.8" fill="#FFF4C2"/>
+    <path d="M29 25H40" stroke="url(#gold_list)" stroke-width="2.2" stroke-linecap="round"/>
+    <path d="M29 32H40" stroke="url(#gold_list)" stroke-width="2.2" stroke-linecap="round"/>
+    <path d="M29 39H40" stroke="url(#gold_list)" stroke-width="2.2" stroke-linecap="round"/>
+  </g>
+</svg>

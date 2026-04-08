@@ -2,734 +2,608 @@
 
 const TOKEN = window.ROOM_TOKEN || "";
 const ROOM_NAME = window.ROOM_NAME || "";
-const USERNAME = localStorage.getItem("omerta_user") || "ضيف";
-const AVATAR_KEY = localStorage.getItem("omerta_char") || "unknown";
-const CUSTOM_IMG = localStorage.getItem("omerta_custom") || "";
-const AVATAR_TYPE = localStorage.getItem("omerta_avatarType") || (CUSTOM_IMG ? "custom" : "builtin");
+const USERNAME = localStorage.getItem("omerta_user") || "لاعب";
+const CHAR_ID = localStorage.getItem("omerta_char") || "unknown";
+const AVATAR_TYPE = localStorage.getItem("omerta_avatarType") || "builtin";
+const CUSTOM = localStorage.getItem("omerta_custom") || "";
+const MIN_PLAYERS = 4;
 
-const AVATARS = {
-  unknown: "/static/svg/avatar-unknown.svg",
-  raven: "/static/svg/avatar-raven.svg",
-  medic: "/static/svg/avatar-medic.svg",
-  warden: "/static/svg/avatar-warden.svg",
-  oracle: "/static/svg/avatar-oracle.svg",
-  smith: "/static/svg/avatar-smith.svg",
-  velvet: "/static/svg/avatar-velvet.svg"
+const ROLE_META = {
+  mafia: { label: "المافيا", color: "#d8b15b", icon: "/static/svg/roles/mafia.svg" },
+  citizen: { label: "المواطن", color: "#fff3c6", icon: "/static/svg/roles/citizen.svg" },
+  doctor: { label: "الطبيب", color: "#d8b15b", icon: "/static/svg/roles/doctor.svg" },
+  detective: { label: "الكاشف", color: "#d8b15b", icon: "/static/svg/roles/detective.svg" },
 };
 
-const ROLE_INFO = {
-  mafia: { label: "المافيا", color: "#ff6b6b", desc: "اختاروا الضحية سراً قبل الصباح.", icon: "/static/svg/role-mafia.svg" },
-  citizen: { label: "المواطن", color: "#53e1c0", desc: "حلّل وتناقش وصوّت بذكاء.", icon: "/static/svg/role-citizen.svg" },
-  doctor: { label: "الطبيب", color: "#6fc8ff", desc: "احمِ لاعباً واحداً في هذه الجولة.", icon: "/static/svg/role-doctor.svg" },
-  detective: { label: "الكاشف", color: "#f3d37c", desc: "اكشف حقيقة لاعب واحد دون أن يراك أحد.", icon: "/static/svg/role-detective.svg" }
-};
-
-const PHASE_COPY = {
-  waiting: { title: "اللوبي", subtitle: "الجميع يستطيع الكلام قبل بداية اللعبة.", icon: "/static/svg/room.svg" },
-  role_reveal: { title: "توزيع الأدوار", subtitle: "تم كتم الجميع مؤقتاً حتى يرى كل لاعب كرت دوره.", icon: "/static/svg/cards.svg" },
-  mafia: { title: "دور المافيا", subtitle: "المافيا فقط تتواصل الآن وتحدد الهدف.", icon: "/static/svg/role-mafia.svg" },
-  doctor: { title: "دور الطبيب", subtitle: "الطبيب يختار من يحميه الآن.", icon: "/static/svg/role-doctor.svg" },
-  detective: { title: "دور الكاشف", subtitle: "الكاشف يختار اللاعب الذي يريد كشفه.", icon: "/static/svg/role-detective.svg" },
-  day: { title: "النهار", subtitle: "قناة عامة للأحياء من أجل النقاش.", icon: "/static/svg/chat.svg" },
-  voting: { title: "التصويت", subtitle: "اختر اللاعب الذي تشك به.", icon: "/static/svg/players.svg" },
-  results: { title: "النتائج", subtitle: "تم كشف الشخصيات وإعلان الفائز.", icon: "/static/svg/cards.svg" }
-};
-
-const socket = io({ transports: ["websocket", "polling"], reconnection: true, reconnectionAttempts: Infinity, timeout: 20000 });
-const RTC_CONFIG = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }, { urls: "stun:stun1.l.google.com:19302" }] };
-const $ = id => document.getElementById(id);
-
-const state = {
+const STATE = {
   mySid: null,
   isHost: false,
   myRole: null,
-  roleMeta: null,
-  players: [],
   phase: "waiting",
   round: 0,
-  deadline: null,
-  selectedTarget: null,
-  selectedVote: null,
-  privatePrompt: null,
-  voteCounts: {},
-  maxPlayers: 12,
-  mayTalk: true,
-  allowedListen: [],
   micOn: false,
-  sidebarOpen: false,
-  chatOpen: window.innerWidth > 1080,
+  players: [],
+  chatOpen: false,
+  infoOpen: false,
+  selectedNightTarget: null,
+  selectedVoteTarget: null,
   stream: null,
   audioCtx: null,
-  analyser: null
+  analyser: null,
 };
 
 const peers = {};
 const remoteAudios = {};
-let countdownTimer = null;
-let speakingLoop = null;
+const RTC_CONFIG = {
+  iceServers: [
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" },
+    { urls: "stun:stun2.l.google.com:19302" },
+  ],
+};
 
-function esc(value) {
-  return String(value || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
+const socket = io({ transports: ["websocket", "polling"], reconnection: true, reconnectionDelay: 1000, reconnectionAttempts: Infinity, timeout: 20000 });
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s || "").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
 
-function avatarSrc(avatar, customImg) {
+function avatarUrl(avatarId, customImg) {
   if (customImg && customImg.startsWith("data:")) return customImg;
-  return AVATARS[avatar] || AVATARS.unknown;
+  return `/static/svg/avatars/${avatarId || "unknown"}.svg`;
 }
 
-function avatarHtml(avatar, customImg, alt = "avatar") {
-  return `<img src="${avatarSrc(avatar, customImg)}" alt="${alt}" />`;
+function playerName(player) {
+  return player?.username || "لاعب";
 }
 
-function roleData(role) {
-  return ROLE_INFO[role] || ROLE_INFO.citizen;
+function currentVoiceMode() {
+  if (STATE.phase === "night") return "القدرات الليلية فقط تسمع وتتحرك الآن";
+  if (STATE.phase === "voting") return "مرحلة التصويت فعالة";
+  if (STATE.phase === "results") return "تم كشف النتائج";
+  return "جميع اللاعبين يسمعون بعضهم";
 }
 
-function seatLabel(index) {
-  return String(index + 1).padStart(2, "0");
+function phaseLabel(phase) {
+  return {
+    waiting: "اللوبي",
+    night: "الليل",
+    day: "النهار",
+    voting: "التصويت",
+    results: "النتائج",
+  }[phase] || phase;
 }
 
-function getPlayerBySid(sid) {
-  return state.players.find(player => player.sid === sid) || null;
+function openDrawer(which) {
+  $("drawerBackdrop").classList.add("show");
+  if (which === "chat") {
+    STATE.chatOpen = true;
+    $("chatDrawer").classList.add("open");
+  }
+  if (which === "info") {
+    STATE.infoOpen = true;
+    $("infoDrawer").classList.add("open");
+  }
 }
 
-function showToast(message, timeout = 2600) {
-  const wrap = $("toastContainer");
-  const toast = document.createElement("div");
-  toast.className = "toast";
-  toast.textContent = message;
-  wrap.appendChild(toast);
+function closeDrawers() {
+  STATE.chatOpen = false;
+  STATE.infoOpen = false;
+  $("chatDrawer").classList.remove("open");
+  $("infoDrawer").classList.remove("open");
+  $("drawerBackdrop").classList.remove("show");
+}
+
+function showModal(title, text) {
+  $("modalTitle").textContent = title;
+  $("modalText").textContent = text;
+  $("modalCard").classList.add("show");
+  $("modalBackdrop").classList.add("show");
+}
+
+function closeModal() {
+  $("modalCard").classList.remove("show");
+  $("modalBackdrop").classList.remove("show");
+}
+
+function toast(text, ms = 3200) {
+  const wrap = $("toastStack");
+  const item = document.createElement("div");
+  item.className = "toast";
+  item.textContent = text;
+  wrap.appendChild(item);
   setTimeout(() => {
-    toast.style.opacity = "0";
-    toast.style.transform = "translateY(-4px)";
-    setTimeout(() => toast.remove(), 200);
-  }, timeout);
+    item.style.opacity = "0";
+    item.style.transform = "translateY(8px)";
+    item.style.transition = "all .22s ease";
+    setTimeout(() => item.remove(), 220);
+  }, ms);
 }
 
-function syncDrawerBackdrop() {
-  const shouldOpen = state.sidebarOpen || state.chatOpen;
-  $("drawerBackdrop").classList.toggle("hidden", !shouldOpen || window.innerWidth > 1280 && !state.chatOpen);
+function renderTop() {
+  $("topRoomCode").textContent = TOKEN;
+  $("infoRoomCode").textContent = TOKEN;
+  $("infoRoomName").textContent = ROOM_NAME;
+  $("topSubtitle").textContent = `${phaseLabel(STATE.phase)} — ${STATE.phase === "waiting" ? "تجهيز اللاعبين" : "الجولة " + (STATE.round || 1)}`;
+  $("phaseBadge").textContent = phaseLabel(STATE.phase);
+  $("infoPhase").textContent = phaseLabel(STATE.phase);
+  const voice = currentVoiceMode();
+  $("voiceModeInline").textContent = voice;
+  $("infoVoiceMode").textContent = voice;
+  $("userCount").textContent = String(STATE.players.length);
+  const canStart = STATE.isHost && STATE.phase === "waiting";
+  const enoughPlayers = STATE.players.length >= MIN_PLAYERS;
+  const startBtn = $("startGameBtn");
+  startBtn.style.display = canStart ? "inline-flex" : "none";
+  startBtn.disabled = !enoughPlayers;
+  startBtn.style.opacity = enoughPlayers ? "1" : ".55";
+  startBtn.title = enoughPlayers ? "ابدأ اللعبة" : "العدد غير كاف لبدء اللعبة";
+
+  const startVoteBtn = $("startVoteBtn");
+  const forceNightBtn = $("forceNightBtn");
+  const resetGameBtn = $("resetGameBtn");
+  [startVoteBtn, forceNightBtn, resetGameBtn].forEach((btn) => btn.classList.add("hidden-by-js"));
+  if (STATE.isHost && STATE.phase === "day") startVoteBtn.classList.remove("hidden-by-js");
+  if (STATE.isHost && STATE.phase === "night") forceNightBtn.classList.remove("hidden-by-js");
+  if (STATE.isHost && STATE.phase === "results") resetGameBtn.classList.remove("hidden-by-js");
 }
 
-function openSidebar() {
-  state.sidebarOpen = true;
-  $("sidebar").classList.add("open");
-  syncDrawerBackdrop();
+function renderWaitingPanel(extra = "") {
+  const title = {
+    waiting: "بانتظار بدء الجولة",
+    night: "الليل يعمل الآن",
+    day: "بدأ النهار",
+    voting: "بدأ التصويت",
+    results: "انتهت الجولة",
+  }[STATE.phase];
+  const defaultText = {
+    waiting: "الغرفة جاهزة، اللاعبون الظاهرون بالأسفل هم المنتظرون قبل بداية اللعبة.",
+    night: "تتحرك القدرات الخاصة في هذه المرحلة. راقب لوحة الحالة والتعليمات التي تظهر لك.",
+    day: "افتح المحادثة أو ناقش داخل القناة الصوتية ثم ابدأ التصويت عند جاهزية الجميع.",
+    voting: "اختر اللاعب الذي تشك فيه من قائمة التصويت الظاهرة تحتك.",
+    results: "تم كشف الأدوار النهائية ويمكن للهوست إعادة الجولة إلى اللوبي.",
+  }[STATE.phase];
+  $("waitingTitle").textContent = title;
+  $("waitingText").textContent = extra || defaultText;
 }
 
-function closeSidebar() {
-  state.sidebarOpen = false;
-  $("sidebar").classList.remove("open");
-  syncDrawerBackdrop();
-}
-
-function openChat() {
-  state.chatOpen = true;
-  $("chatPanel").classList.add("open");
-  syncDrawerBackdrop();
-}
-
-function closeChat() {
-  state.chatOpen = false;
-  $("chatPanel").classList.remove("open");
-  syncDrawerBackdrop();
-}
-
-function toggleSidebar() {
-  state.sidebarOpen ? closeSidebar() : openSidebar();
-}
-
-function toggleChat() {
-  state.chatOpen ? closeChat() : openChat();
-}
-
-function renderSelfCard() {
-  $("upAvatar").innerHTML = avatarHtml(AVATAR_KEY, CUSTOM_IMG, USERNAME);
-  $("upName").textContent = USERNAME;
-}
-
-function createBoardSeats() {
-  const board = $("seatBoard");
-  board.innerHTML = "";
-  for (let index = 0; index < 12; index += 1) {
-    const seat = document.createElement("div");
-    seat.className = `seat empty pos-${index}`;
-    seat.dataset.seat = String(index);
-    seat.dataset.label = seatLabel(index);
-    board.appendChild(seat);
-  }
-}
-
-function renderBoard() {
-  document.querySelectorAll(".seat").forEach(seat => {
-    seat.classList.add("empty");
-    seat.innerHTML = "";
-  });
-
-  state.players.forEach(player => {
-    const seat = document.querySelector(`.seat[data-seat="${player.seat}"]`);
-    if (!seat) return;
-    seat.classList.remove("empty");
-    const mutedBadge = player.mic ? "" : `<span class="badge muted">صامت</span>`;
-    const hostBadge = player.is_host ? `<span class="badge host">هوست</span>` : "";
-    seat.innerHTML = `
-      <div class="player-tile ${player.speaking ? "speaking" : ""} ${!player.alive ? "dead" : ""}">
-        <div class="player-avatar">${avatarHtml(player.avatar, player.customImg, player.username)}</div>
-        <div class="player-name">${esc(player.username)}</div>
-        <div class="player-state">${player.alive ? (player.speaking ? "يتكلم الآن" : "جاهز") : "خارج الجولة"}</div>
-        <div class="player-badges">${hostBadge}${mutedBadge}</div>
-      </div>`;
-  });
-
-  $("userCount").textContent = String(state.players.length);
-  $("sidebarCount").textContent = String(state.players.length);
-}
-
-function renderSidebarPlayers() {
-  const wrap = $("sidebarPlayers");
-  wrap.innerHTML = "";
-  state.players.forEach(player => {
-    const micIcon = player.mic ? "/static/svg/mic-on.svg" : "/static/svg/mic-off.svg";
-    const crown = player.is_host ? `<img src="/static/svg/crown.svg" alt="host" class="badge-icon" />` : "";
-    const item = document.createElement("div");
-    item.className = `side-player ${!player.alive ? "dead" : ""}`;
-    item.innerHTML = `
-      <div class="side-player-avatar">${avatarHtml(player.avatar, player.customImg, player.username)}</div>
-      <div class="side-player-name">${esc(player.username)}</div>
-      <div class="side-player-meta">${crown}<img src="${micIcon}" alt="mic" /></div>`;
-    wrap.appendChild(item);
-  });
-}
-
-function updateHostButtons() {
-  const shouldShow = state.isHost && state.phase === "waiting";
-  const tooFew = state.players.length < 4;
-  [$("tbStartBtn"), $("startGameBtn")].forEach(button => {
-    button.classList.toggle("hidden", !shouldShow);
-    button.disabled = tooFew;
-  });
-  $("resetGameBtn").style.display = state.isHost ? "inline-flex" : "none";
-}
-
-function updateMicUI() {
-  const icon = state.micOn ? "/static/svg/mic-on.svg" : "/static/svg/mic-off.svg";
-  $("micStateIcon").src = icon;
-  $("sideMicIcon").src = icon;
-}
-
-function policyCopy() {
-  if (state.phase === "waiting") return "قناة عامة مفتوحة للجميع";
-  if (state.phase === "role_reveal") return "تم كتم الجميع حتى تظهر الأدوار";
-  if (state.phase === "mafia") return state.myRole === "mafia" ? "أنت داخل قناة المافيا فقط" : "القناة مغلقة عليك الآن";
-  if (state.phase === "doctor") return state.myRole === "doctor" ? "وقت الطبيب فقط" : "القناة مغلقة عليك الآن";
-  if (state.phase === "detective") return state.myRole === "detective" ? "وقت الكاشف فقط" : "القناة مغلقة عليك الآن";
-  if (state.phase === "day") return "قناة عامة للأحياء";
-  if (state.phase === "voting") return "مرحلة التصويت العامة";
-  return "انتهت الجولة";
-}
-
-function updatePhaseUI(copyText = "") {
-  const phaseMeta = PHASE_COPY[state.phase] || PHASE_COPY.waiting;
-  $("sidebarPhaseVal").textContent = phaseMeta.title;
-  $("topBarPhase").textContent = `${phaseMeta.title} — ${phaseMeta.subtitle}`;
-  $("policyCard").textContent = policyCopy();
-  $("upStatus").textContent = state.mayTalk ? "يمكنك الكلام" : "صامت حسب المرحلة";
-  $("centerRound").textContent = state.phase === "waiting" ? "بانتظار بدء اللعبة" : `الجولة ${state.round || 1}`;
-  $("centerAnnouncement").textContent = copyText || phaseMeta.subtitle;
-}
-
-function startCountdown(deadline) {
-  clearInterval(countdownTimer);
-  if (!deadline) {
-    $("phaseTimer").textContent = "--:--";
+function renderRoleBadge() {
+  const wrap = $("roleBadgeWrap");
+  if (!STATE.myRole || !ROLE_META[STATE.myRole]) {
+    wrap.classList.add("hidden");
     return;
   }
-  const tick = () => {
-    const ms = Math.max(0, Math.floor(deadline * 1000 - Date.now()));
-    const total = Math.ceil(ms / 1000);
-    const minutes = String(Math.floor(total / 60)).padStart(2, "0");
-    const seconds = String(total % 60).padStart(2, "0");
-    $("phaseTimer").textContent = `${minutes}:${seconds}`;
-    if (total <= 0) clearInterval(countdownTimer);
-  };
-  tick();
-  countdownTimer = setInterval(tick, 400);
+  const meta = ROLE_META[STATE.myRole];
+  wrap.classList.remove("hidden");
+  $("roleBadgeIcon").src = meta.icon;
+  $("roleBadgeLabel").textContent = meta.label;
+  $("roleBadgeLabel").style.color = meta.color;
 }
 
-function renderSelection(list, mode) {
-  const wrapId = mode === "vote" ? "voteList" : "actionList";
-  const wrap = $(wrapId);
-  wrap.innerHTML = "";
-  list.forEach(item => {
-    const player = getPlayerBySid(item.sid);
-    const card = document.createElement("button");
-    card.type = "button";
-    const active = mode === "vote" ? state.selectedVote === item.sid : state.selectedTarget === item.sid;
-    card.className = `selection-card${active ? " active" : ""}`;
-    card.innerHTML = `
-      <div class="selection-avatar">${avatarHtml(player?.avatar, player?.customImg, item.username)}</div>
-      <div>
-        <div class="selection-name">${esc(item.username)}</div>
-        <div class="selection-meta">${mode === "vote" ? "تصويت علني" : "اختيار خاص"}</div>
+function buildPlayerCard(player) {
+  const card = document.createElement("article");
+  card.className = `player-card${player.speaking ? " speaking" : ""}${!player.alive ? " dead" : ""}`;
+  card.innerHTML = `
+    <div class="player-head">
+      <div class="player-avatar">
+        <img src="${avatarUrl(player.avatar, player.customImg)}" alt="avatar">
+        <div>
+          <strong>${esc(playerName(player))}</strong>
+          <span>${player.is_host ? "هوست الغرفة" : player.alive ? "داخل الجولة" : "خرج من الجولة"}</span>
+        </div>
       </div>
-      <div class="selection-meta">${mode === "vote" ? (state.voteCounts[item.sid] || 0) : "اختيار"}</div>`;
-    card.addEventListener("click", () => {
-      if (mode === "vote") {
-        if (state.selectedVote) return;
-        state.selectedVote = item.sid;
-        socket.emit("cast_vote", { room: TOKEN, target_sid: item.sid });
-      } else {
-        state.selectedTarget = item.sid;
-        renderOverlay();
-      }
-    });
-    wrap.appendChild(card);
+      <span class="mini-chip">${player.is_host ? "هوست" : player.mic ? "الصوت مفعل" : "الصوت مغلق"}</span>
+    </div>
+    <div class="player-status">
+      <small>${player.role ? ROLE_META[player.role]?.label || player.role : (player.alive ? "جاهز" : "خارج الجولة")}</small>
+      ${player.speaking ? '<small>يتحدث الآن</small>' : '<small>هادئ</small>'}
+    </div>
+  `;
+  return card;
+}
+
+function renderDrawerPlayers(players) {
+  const wrap = $("drawerPlayers");
+  wrap.innerHTML = "";
+  players.forEach((player) => {
+    const row = document.createElement("div");
+    row.className = "drawer-player";
+    row.innerHTML = `
+      <img src="${avatarUrl(player.avatar, player.customImg)}" alt="avatar">
+      <div style="min-width:0">
+        <strong style="display:block;color:var(--gold-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(playerName(player))}</strong>
+        <span style="display:block;color:var(--muted);margin-top:6px;font-size:.88rem">${player.is_host ? "هوست" : player.alive ? "متصل" : "خارج الجولة"}</span>
+      </div>
+    `;
+    wrap.appendChild(row);
   });
 }
 
-function renderOverlay() {
-  const overlay = $("phaseOverlay");
-  const phaseMeta = PHASE_COPY[state.phase] || PHASE_COPY.waiting;
-  $("overlayIcon").src = phaseMeta.icon;
-  $("overlayBadge").textContent = phaseMeta.title;
-  $("overlayTitle").textContent = phaseMeta.title;
-  $("overlaySubtitle").textContent = phaseMeta.subtitle;
-  $("roleRevealCard").classList.add("hidden");
-  $("selectionWrap").classList.add("hidden");
-  $("votePanel").classList.add("hidden");
-  $("actionSubmitBtn").classList.add("hidden");
-
-  if (state.phase === "role_reveal") {
-    overlay.classList.remove("hidden");
-    if (state.myRole) {
-      const role = roleData(state.myRole);
-      $("roleRevealCard").classList.remove("hidden");
-      $("roleCardIcon").src = role.icon;
-      $("roleCardName").textContent = role.label;
-      $("roleCardName").style.color = role.color;
-      $("roleCardDesc").textContent = role.desc;
-    }
-    return;
-  }
-
-  if (["mafia", "doctor", "detective"].includes(state.phase)) {
-    overlay.classList.remove("hidden");
-    if (state.privatePrompt) {
-      $("overlayTitle").textContent = state.privatePrompt.title || phaseMeta.title;
-      $("overlaySubtitle").textContent = state.privatePrompt.subtitle || phaseMeta.subtitle;
-      if ((state.privatePrompt.targets || []).length) {
-        $("selectionWrap").classList.remove("hidden");
-        $("actionSubmitBtn").classList.remove("hidden");
-        $("actionSubmitBtn").disabled = !state.selectedTarget;
-        renderSelection(state.privatePrompt.targets || [], "action");
-      }
-    }
-    return;
-  }
-
-  if (state.phase === "voting") {
-    overlay.classList.remove("hidden");
-    $("votePanel").classList.remove("hidden");
-    renderSelection((state.players || []).filter(p => p.alive).map(p => ({ sid: p.sid, username: p.username })), "vote");
-    return;
-  }
-
-  overlay.classList.add("hidden");
-}
-
-function renderResults(data) {
-  $("resultsWinner").textContent = data.winner === "mafia" ? "فاز فريق المافيا" : "فاز فريق المواطنين";
-  $("resultsLabel").textContent = data.label || "انتهت الجولة";
-  const grid = $("resultsGrid");
+function renderPlayers(players) {
+  const grid = $("playersGrid");
   grid.innerHTML = "";
-  (data.players || []).forEach(player => {
-    const role = roleData(player.role);
-    const item = document.createElement("article");
-    item.className = `result-card ${!player.alive ? "dead" : ""}`;
-    item.innerHTML = `
-      <img class="avatar" src="${avatarSrc(player.avatar, player.customImg)}" alt="${esc(player.username)}" />
-      <img class="role" src="${role.icon}" alt="${role.label}" />
-      <div class="name">${esc(player.username)}</div>
-      <div class="role-name">${role.label}</div>`;
-    grid.appendChild(item);
-  });
-  $("resultDrawer").classList.remove("hidden");
+  if (!players.length) {
+    $("emptyState").classList.remove("hidden");
+  } else {
+    $("emptyState").classList.add("hidden");
+  }
+  const shuffled = [...players].sort((a, b) => (a.sid < b.sid ? -1 : 1));
+  shuffled.forEach((player) => grid.appendChild(buildPlayerCard(player)));
+  renderDrawerPlayers(players);
+  renderTop();
 }
 
 function appendMessage(data) {
-  const wrap = $("chatMessages");
+  const box = $("chatMessages");
   const item = document.createElement("div");
   if (data.type === "system") {
-    item.className = "sys-msg";
-    item.textContent = data.msg;
+    item.className = "system-msg";
+    item.innerHTML = `<small>نظام الغرفة</small>${esc(data.msg)}`;
   } else {
-    item.className = "msg";
-    item.innerHTML = `
-      <div class="msg-head">
-        <div class="msg-avatar">${avatarHtml(data.avatar, data.customImg, data.user)}</div>
-        <div class="msg-name">${esc(data.user)}</div>
-      </div>
-      <div class="msg-text">${esc(data.msg)}</div>`;
+    const when = new Date().toLocaleTimeString("ar", { hour: "2-digit", minute: "2-digit" });
+    item.className = "chat-msg";
+    item.innerHTML = `<strong>${esc(data.user || "لاعب")}</strong><small>${when}</small><div>${esc(data.msg)}</div>`;
   }
-  wrap.appendChild(item);
-  wrap.scrollTop = wrap.scrollHeight;
+  box.appendChild(item);
+  box.scrollTop = box.scrollHeight;
 }
 
-async function ensureMic() {
-  if (state.stream) {
-    state.stream.getTracks().forEach(track => { track.enabled = true; });
-    return true;
-  }
+function toggleMicUI() {
+  $("micIcon").src = STATE.micOn ? "/static/svg/icons/mic-on.svg" : "/static/svg/icons/mic-off.svg";
+}
+
+async function initMic() {
   try {
-    state.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: false });
-    const AudioContextRef = window.AudioContext || window.webkitAudioContext;
-    state.audioCtx = new AudioContextRef();
-    const source = state.audioCtx.createMediaStreamSource(state.stream);
-    state.analyser = state.audioCtx.createAnalyser();
-    state.analyser.fftSize = 256;
-    source.connect(state.analyser);
-    startSpeakingLoop();
-    state.players.forEach(player => {
-      if (player.sid !== state.mySid) createOffer(player.sid);
-    });
-    return true;
-  } catch (error) {
-    showToast("تعذر الوصول إلى الميكروفون");
-    return false;
+    STATE.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: false });
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    STATE.audioCtx = new AudioCtx();
+    const source = STATE.audioCtx.createMediaStreamSource(STATE.stream);
+    STATE.analyser = STATE.audioCtx.createAnalyser();
+    STATE.analyser.fftSize = 256;
+    source.connect(STATE.analyser);
+    if (STATE.audioCtx.state === "suspended") await STATE.audioCtx.resume();
+    detectSpeaking();
+    STATE.players.forEach((p) => { if (p.sid !== STATE.mySid) createOffer(p.sid); });
+    toast("تم تفعيل الميكروفون");
+  } catch (err) {
+    console.error(err);
+    STATE.micOn = false;
+    toggleMicUI();
+    showModal("تعذر فتح الميكروفون", "اسمح للمتصفح بالوصول إلى الميكروفون ثم حاول مرة أخرى.");
   }
 }
 
-function startSpeakingLoop() {
-  cancelAnimationFrame(speakingLoop);
-  if (!state.analyser) return;
-  const buffer = new Uint8Array(state.analyser.frequencyBinCount);
-  let lastState = false;
+function detectSpeaking() {
+  if (!STATE.analyser || !STATE.stream || !STATE.micOn) return;
+  const data = new Uint8Array(STATE.analyser.frequencyBinCount);
   const loop = () => {
-    if (!state.analyser) return;
-    state.analyser.getByteFrequencyData(buffer);
-    const average = buffer.reduce((sum, value) => sum + value, 0) / buffer.length;
-    const active = average > 18 && state.micOn && state.mayTalk;
-    if (active !== lastState) {
-      lastState = active;
-      socket.emit("speaking", { room: TOKEN, active });
-    }
-    speakingLoop = requestAnimationFrame(loop);
+    if (!STATE.analyser || !STATE.micOn) return;
+    STATE.analyser.getByteFrequencyData(data);
+    const average = data.reduce((acc, n) => acc + n, 0) / data.length;
+    socket.emit("speaking", { room: TOKEN, active: average > 12 });
+    requestAnimationFrame(loop);
   };
-  loop();
+  requestAnimationFrame(loop);
 }
 
-function closePeer(sid) {
-  if (peers[sid]) {
-    try { peers[sid].close(); } catch (_) {}
-    delete peers[sid];
+async function toggleMic() {
+  STATE.micOn = !STATE.micOn;
+  if (STATE.micOn && !STATE.stream) {
+    await initMic();
   }
-  if (remoteAudios[sid]) {
-    remoteAudios[sid].remove();
-    delete remoteAudios[sid];
+  if (STATE.stream) {
+    STATE.stream.getAudioTracks().forEach((track) => { track.enabled = STATE.micOn; });
+  }
+  socket.emit("toggle_mic", { room: TOKEN, state: STATE.micOn });
+  toggleMicUI();
+}
+
+function closePeer(remoteSid) {
+  if (peers[remoteSid]) {
+    try { peers[remoteSid].close(); } catch (e) {}
+    delete peers[remoteSid];
+  }
+  if (remoteAudios[remoteSid]) {
+    try { remoteAudios[remoteSid].srcObject = null; remoteAudios[remoteSid].remove(); } catch (e) {}
+    delete remoteAudios[remoteSid];
   }
 }
 
-function attachLocalTracks(pc) {
-  if (!state.stream) return;
-  const senders = pc.getSenders();
-  state.stream.getTracks().forEach(track => {
-    const exists = senders.some(sender => sender.track && sender.track.id === track.id);
-    if (!exists) pc.addTrack(track, state.stream);
-  });
-}
-
-function getOrCreatePeer(sid) {
-  if (peers[sid]) {
-    attachLocalTracks(peers[sid]);
-    return peers[sid];
-  }
+function getOrCreatePeer(remoteSid) {
+  if (peers[remoteSid]) return peers[remoteSid];
   const pc = new RTCPeerConnection(RTC_CONFIG);
-  peers[sid] = pc;
-  attachLocalTracks(pc);
-  pc.onicecandidate = event => {
-    if (event.candidate) socket.emit("webrtc_ice", { room: TOKEN, target: sid, candidate: event.candidate });
+  peers[remoteSid] = pc;
+  if (STATE.stream) STATE.stream.getTracks().forEach((track) => pc.addTrack(track, STATE.stream));
+  pc.onicecandidate = (event) => {
+    if (event.candidate) socket.emit("webrtc_ice", { room: TOKEN, target: remoteSid, candidate: event.candidate });
   };
-  pc.ontrack = event => {
-    let audio = remoteAudios[sid];
+  pc.ontrack = (event) => {
+    let audio = remoteAudios[remoteSid];
     if (!audio) {
       audio = document.createElement("audio");
       audio.autoplay = true;
       audio.playsInline = true;
-      remoteAudios[sid] = audio;
+      remoteAudios[remoteSid] = audio;
       document.body.appendChild(audio);
     }
     audio.srcObject = event.streams[0];
-    applyAudioPolicy();
+    audio.play().catch(() => {});
   };
   pc.onconnectionstatechange = () => {
-    if (["failed", "closed", "disconnected"].includes(pc.connectionState)) closePeer(sid);
+    const state = pc.connectionState;
+    if (["failed", "closed"].includes(state)) closePeer(remoteSid);
+    if (state === "disconnected") {
+      setTimeout(() => {
+        if (peers[remoteSid] && peers[remoteSid].connectionState === "disconnected") {
+          closePeer(remoteSid);
+          if (STATE.micOn && STATE.stream && STATE.players.find((p) => p.sid === remoteSid)) createOffer(remoteSid);
+        }
+      }, 3500);
+    }
   };
   return pc;
 }
 
-async function createOffer(sid) {
-  if (!state.stream || sid === state.mySid) return;
-  const pc = getOrCreatePeer(sid);
-  if (pc.signalingState !== "stable") return;
+async function createOffer(remoteSid) {
+  const pc = getOrCreatePeer(remoteSid);
   try {
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
-    socket.emit("webrtc_offer", { room: TOKEN, target: sid, sdp: pc.localDescription });
-  } catch (_) {}
-}
-
-function applyAudioPolicy() {
-  if (state.stream) {
-    state.stream.getAudioTracks().forEach(track => {
-      track.enabled = state.micOn && state.mayTalk;
-    });
+    socket.emit("webrtc_offer", { room: TOKEN, target: remoteSid, sdp: pc.localDescription });
+  } catch (err) {
+    console.warn("offer", err);
   }
-  Object.entries(remoteAudios).forEach(([sid, audio]) => {
-    audio.muted = !state.allowedListen.includes(sid);
-    if (!audio.muted) audio.play().catch(() => {});
-  });
-  updateMicUI();
-  updatePhaseUI($("centerAnnouncement").textContent);
 }
 
-async function toggleMic() {
-  if (!state.micOn) {
-    const ok = await ensureMic();
-    if (!ok) return;
-    state.micOn = true;
-  } else {
-    state.micOn = false;
-    if (state.stream) state.stream.getTracks().forEach(track => { track.enabled = false; });
-    socket.emit("speaking", { room: TOKEN, active: false });
-  }
-  applyAudioPolicy();
-  socket.emit("toggle_mic", { room: TOKEN, state: state.micOn });
-}
-
-function sendMsg() {
+function sendMessage() {
   const input = $("chatInput");
-  const message = (input.value || "").trim();
-  if (!message) return;
-  socket.emit("chat_msg", { room: TOKEN, msg: message });
+  const text = input.value.trim();
+  if (!text) return;
+  socket.emit("chat_msg", { room: TOKEN, msg: text });
   input.value = "";
 }
 
 function copyCode() {
-  navigator.clipboard.writeText(TOKEN).then(() => showToast(`تم نسخ الكود ${TOKEN}`)).catch(() => showToast(TOKEN));
+  navigator.clipboard.writeText(TOKEN).then(() => toast(`تم نسخ الكود ${TOKEN}`)).catch(() => toast(TOKEN));
 }
 
-function startGame() {
-  if (state.players.length < 4) {
-    $("minPlayersModal").classList.remove("hidden");
+function openChat() { closeModal(); openDrawer("chat"); }
+function openInfo() { closeModal(); openDrawer("info"); }
+
+function beginStartGame() {
+  if (!STATE.isHost) return;
+  if (STATE.players.length < MIN_PLAYERS) {
+    showModal("عدد اللاعبين غير كاف", `لا يمكن بدء اللعبة الآن. تحتاج إلى ${MIN_PLAYERS} لاعبين على الأقل، والحالي ${STATE.players.length}.`);
     return;
   }
   socket.emit("start_game", { room: TOKEN });
 }
 
-function sendNightAction() {
-  if (!state.selectedTarget) {
-    showToast("اختر لاعباً أولاً");
+function beginStartVote(){ socket.emit("start_vote", { room: TOKEN }); }
+function beginForceNight(){ socket.emit("force_night_end", { room: TOKEN }); }
+function beginResetGame(){ socket.emit("reset_game", { room: TOKEN }); }
+
+function renderNightTargets(role, targets) {
+  const card = $("nightActionCard");
+  const wrap = $("nightTargets");
+  const title = $("nightActionTitle");
+  const sub = $("nightActionSub");
+  const confirmBtn = $("confirmNightBtn");
+  const titles = {
+    mafia: ["اختيار هدف المافيا", "اختر اللاعب الذي تريد إخراجه من الجولة."],
+    doctor: ["قدرة الطبيب", "اختر اللاعب الذي تريد حمايته."],
+    detective: ["قدرة الكاشف", "اختر اللاعب الذي تريد معرفة هويته."],
+  };
+  if (!titles[role]) {
+    card.classList.add("hidden");
     return;
   }
-  socket.emit("night_action", { room: TOKEN, target_sid: state.selectedTarget });
-  $("actionSubmitBtn").disabled = true;
+  title.textContent = titles[role][0];
+  sub.textContent = titles[role][1];
+  wrap.innerHTML = "";
+  STATE.selectedNightTarget = null;
+  confirmBtn.disabled = true;
+  targets.forEach((target) => {
+    const player = STATE.players.find((item) => item.sid === target.sid) || { avatar: "unknown", customImg: "", username: target.username };
+    const item = document.createElement("button");
+    item.className = "target-card";
+    item.type = "button";
+    item.innerHTML = `<img src="${avatarUrl(player.avatar, player.customImg)}" alt="avatar"><div><strong style="display:block;color:var(--gold-soft)">${esc(target.username)}</strong><small style="display:block;color:var(--muted);margin-top:6px">اختيار مباشر</small></div>`;
+    item.addEventListener("click", () => {
+      wrap.querySelectorAll(".target-card").forEach((el) => el.classList.remove("active"));
+      item.classList.add("active");
+      STATE.selectedNightTarget = target.sid;
+      confirmBtn.disabled = false;
+    });
+    wrap.appendChild(item);
+  });
+  card.classList.remove("hidden");
 }
 
-function resetGame() {
-  socket.emit("reset_game", { room: TOKEN });
+function submitNightTarget() {
+  if (!STATE.selectedNightTarget) return;
+  socket.emit("night_action", { room: TOKEN, target_sid: STATE.selectedNightTarget });
+  $("confirmNightBtn").disabled = true;
+  toast("تم إرسال اختيارك الليلي");
 }
 
-function confirmLeave() {
-  if (window.confirm("هل تريد مغادرة الغرفة؟")) window.location.href = "/";
+function renderVoteTargets(candidates) {
+  const card = $("voteCard");
+  const wrap = $("voteTargets");
+  wrap.innerHTML = "";
+  STATE.selectedVoteTarget = null;
+  candidates.forEach((target) => {
+    const player = STATE.players.find((item) => item.sid === target.sid) || { avatar: "unknown", customImg: "", username: target.username };
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "target-card";
+    item.innerHTML = `<img src="${avatarUrl(player.avatar, player.customImg)}" alt="avatar"><div><strong style="display:block;color:var(--gold-soft)">${esc(target.username)}</strong><small style="display:block;color:var(--muted);margin-top:6px">تصويت</small></div>`;
+    if (target.sid === STATE.mySid) item.disabled = true;
+    item.addEventListener("click", () => {
+      if (STATE.selectedVoteTarget) return;
+      STATE.selectedVoteTarget = target.sid;
+      socket.emit("cast_vote", { room: TOKEN, target_sid: target.sid });
+      item.classList.add("active");
+    });
+    wrap.appendChild(item);
+  });
+  card.classList.remove("hidden");
+}
+
+function updateVoteCounts(counts) {
+  const text = Object.values(counts || {}).reduce((a, b) => a + b, 0);
+  $("voteStatusText").textContent = `تم تسجيل ${text} صوت حتى الآن.`;
+}
+
+function setPhase(phase, data = {}) {
+  STATE.phase = phase;
+  if (typeof data.round === "number") STATE.round = data.round;
+  renderTop();
+  renderWaitingPanel(data.killed ? `بدأ النهار بعد خروج ${data.killed}.` : data.eliminated ? `خرج ${data.eliminated} بعد التصويت.` : "");
+  $("nightActionCard").classList.add("hidden");
+  $("voteCard").classList.add("hidden");
+  if (phase === "night" && STATE.myRole === "citizen") {
+    renderWaitingPanel("أنت مواطن، انتظر انتهاء الحركة الليلية لباقي الأدوار.");
+  }
+  if (phase === "results") {
+    renderWaitingPanel(data.label || "تم كشف جميع الأدوار ونهاية الجولة.");
+  }
 }
 
 socket.on("connect", () => {
-  socket.emit("join", { room: TOKEN, username: USERNAME, avatar: AVATAR_KEY, avatarType: AVATAR_TYPE, customImg: CUSTOM_IMG });
+  socket.emit("join", { room: TOKEN, username: USERNAME, avatar: CHAR_ID, avatarType: AVATAR_TYPE, customImg: CUSTOM });
 });
 
-socket.on("joined_ok", data => {
-  state.mySid = data.my_sid;
-  state.isHost = data.is_host;
-  state.maxPlayers = data.max_players || 12;
-  $("sidebarRoomName").textContent = data.room_name || ROOM_NAME;
-  $("sidebarRoomCode").textContent = TOKEN;
-  $("topBarRoomName").textContent = data.room_name || ROOM_NAME;
-  renderSelfCard();
-  updateHostButtons();
+socket.on("joined_ok", (data) => {
+  STATE.mySid = data.my_sid;
+  STATE.isHost = data.is_host;
+  if (data.phase) STATE.phase = data.phase;
+  renderTop();
 });
 
-socket.on("phase_change", data => {
-  state.phase = data.phase || "waiting";
-  state.round = data.round || state.round || 0;
-  state.deadline = data.deadline || null;
-  state.selectedTarget = null;
-  state.selectedVote = null;
-  state.voteCounts = {};
-  if (!state.privatePrompt || state.privatePrompt.phase !== state.phase) state.privatePrompt = null;
-  updatePhaseUI(data.announcement || "");
-  startCountdown(state.deadline);
-  renderOverlay();
-});
-
-socket.on("your_role", data => {
-  state.myRole = data.role;
-  state.roleMeta = data;
-  renderOverlay();
-});
-
-socket.on("private_prompt", data => {
-  state.privatePrompt = data;
-  if (state.phase === data.phase) renderOverlay();
-});
-
-socket.on("update_players", data => {
-  state.players = data.players || [];
-  state.maxPlayers = data.max_players || 12;
-  state.isHost = !!(state.players.find(p => p.sid === state.mySid)?.is_host);
-  renderBoard();
-  renderSidebarPlayers();
-  updateHostButtons();
-  if (state.stream) {
-    state.players.forEach(player => {
-      if (player.sid !== state.mySid && !peers[player.sid] && String(state.mySid) < String(player.sid)) createOffer(player.sid);
+socket.on("update_players", (data) => {
+  STATE.players = data.players || [];
+  renderPlayers(STATE.players);
+  if (STATE.micOn && STATE.stream) {
+    STATE.players.forEach((player) => {
+      if (player.sid !== STATE.mySid && !peers[player.sid]) createOffer(player.sid);
     });
   }
-  Object.keys(peers).forEach(sid => {
-    if (!state.players.find(player => player.sid === sid)) closePeer(sid);
+  Object.keys(peers).forEach((sid) => {
+    if (!STATE.players.find((player) => player.sid === sid)) closePeer(sid);
   });
 });
 
-socket.on("audio_policy", data => {
-  state.allowedListen = data.allowed_listen || [];
-  state.mayTalk = !!data.may_talk;
-  applyAudioPolicy();
+socket.on("new_message", (data) => appendMessage(data));
+socket.on("name_taken", (data) => showModal("الاسم مستخدم", `الاسم مستخدم بالفعل. جرّب الاسم المقترح: ${data.suggested}`));
+socket.on("error", (data) => {
+  const msg = data?.msg || "حدث خطأ";
+  if (msg.includes("العدد غير كاف") || msg.includes("تحتاج")) showModal("عدد اللاعبين غير كاف", msg);
+  else toast(msg);
 });
 
-socket.on("new_message", appendMessage);
-socket.on("name_taken", data => showToast(`الاسم مستخدم. جرّب ${data.suggested}`));
-socket.on("error", data => showToast(data?.msg || "حدث خطأ"));
-socket.on("action_received", data => showToast(data?.msg || "تم تسجيل الاختيار"));
-socket.on("vote_ack", data => showToast(data?.msg || "تم تسجيل التصويت"));
-
-socket.on("vote_update", data => {
-  state.voteCounts = data.counts || {};
-  if (state.phase === "voting") renderOverlay();
+socket.on("game_started", (data) => {
+  STATE.round = data.round || 1;
+  setPhase("night", data);
+  renderWaitingPanel("بدأت الجولة. تظهر لك تعليمات خاصة إذا كان لدورك قدرة ليلية.");
+  toast("بدأت اللعبة");
 });
 
-socket.on("detective_result", data => {
-  const text = data.is_mafia ? `${data.username} من المافيا` : `${data.username} ليس من المافيا`;
-  $("overlaySubtitle").textContent = text;
-  showToast(text, 3600);
+socket.on("your_role", (data) => {
+  STATE.myRole = data.role;
+  renderRoleBadge();
+  toast(`دورك: ${data.label}`);
 });
 
-socket.on("game_started", data => {
-  state.round = data.round || 1;
-  $("resultDrawer").classList.add("hidden");
-  updatePhaseUI("بدأت اللعبة الآن");
-  showToast("بدأت اللعبة");
+socket.on("night_info", (data) => {
+  if (data?.role && data.role !== "citizen") renderNightTargets(data.role, data.targets || []);
 });
 
-socket.on("game_over", data => {
-  state.phase = "results";
-  updatePhaseUI(data.label || "انتهت الجولة");
-  $("phaseOverlay").classList.add("hidden");
-  clearInterval(countdownTimer);
-  renderResults(data);
+socket.on("detective_result", (data) => {
+  const text = data.is_mafia ? `${data.username} من فريق المافيا.` : `${data.username} ليس من فريق المافيا.`;
+  showModal("نتيجة التحقق", text);
+});
+
+socket.on("action_received", (data) => toast(data.msg || "تم حفظ الاختيار"));
+
+socket.on("phase_change", (data) => {
+  setPhase(data.phase, data);
+  if (data.phase === "voting") renderVoteTargets(data.candidates || []);
+});
+
+socket.on("vote_update", (data) => updateVoteCounts(data.counts || {}));
+socket.on("vote_ack", (data) => toast(data.msg || "تم تسجيل التصويت"));
+socket.on("game_over", (data) => {
+  setPhase("results", data);
+  showModal("انتهت الجولة", data.label || "تم حسم الجولة الحالية.");
 });
 
 socket.on("game_reset", () => {
-  state.phase = "waiting";
-  state.round = 0;
-  state.myRole = null;
-  state.roleMeta = null;
-  state.privatePrompt = null;
-  state.voteCounts = {};
-  state.selectedVote = null;
-  state.selectedTarget = null;
-  $("resultDrawer").classList.add("hidden");
-  $("phaseOverlay").classList.add("hidden");
-  updatePhaseUI("اجمع 4 لاعبين على الأقل ثم ابدأ الجولة الأولى.");
-  showToast("تمت إعادة ضبط اللعبة");
+  STATE.myRole = null;
+  STATE.round = 0;
+  setPhase("waiting", {});
+  renderRoleBadge();
+  toast("تمت إعادة الجولة إلى اللوبي");
 });
 
-socket.on("disconnect", () => showToast("انقطع الاتصال مؤقتاً"));
+socket.on("disconnect", () => toast("انقطع الاتصال، سيتم إعادة المحاولة"));
 socket.on("reconnect", () => {
-  showToast("تمت إعادة الاتصال");
-  socket.emit("join", { room: TOKEN, username: USERNAME, avatar: AVATAR_KEY, avatarType: AVATAR_TYPE, customImg: CUSTOM_IMG });
+  toast("تمت إعادة الاتصال");
+  socket.emit("join", { room: TOKEN, username: USERNAME, avatar: CHAR_ID, avatarType: AVATAR_TYPE, customImg: CUSTOM });
 });
 
-socket.on("webrtc_offer", async data => {
+socket.on("webrtc_offer", async (data) => {
   const pc = getOrCreatePeer(data.from);
   try {
     await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
     const answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
     socket.emit("webrtc_answer", { room: TOKEN, target: data.from, sdp: pc.localDescription });
-  } catch (_) {}
+  } catch (err) { console.warn(err); }
 });
 
-socket.on("webrtc_answer", async data => {
+socket.on("webrtc_answer", async (data) => {
   const pc = peers[data.from];
   if (!pc) return;
-  try {
-    await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
-  } catch (_) {}
+  try { await pc.setRemoteDescription(new RTCSessionDescription(data.sdp)); } catch (err) { console.warn(err); }
 });
 
-socket.on("webrtc_ice", async data => {
+socket.on("webrtc_ice", async (data) => {
   const pc = peers[data.from];
   if (!pc || !data.candidate) return;
-  try {
-    await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
-  } catch (_) {}
+  try { await pc.addIceCandidate(new RTCIceCandidate(data.candidate)); } catch (err) {}
 });
 
+function resumeAudio() {
+  if (STATE.audioCtx && STATE.audioCtx.state === "suspended") STATE.audioCtx.resume().catch(() => {});
+  Object.values(remoteAudios).forEach((audio) => audio.play().catch(() => {}));
+}
+
 document.addEventListener("DOMContentLoaded", () => {
-  createBoardSeats();
-  renderSelfCard();
-  updateMicUI();
-  updatePhaseUI("اجمع 4 لاعبين على الأقل ثم ابدأ الجولة الأولى.");
-  $("chatPanel").classList.toggle("open", state.chatOpen);
+  renderTop();
+  renderWaitingPanel();
+  toggleMicUI();
+  $("chatMessages").innerHTML = '<div class="system-msg"><small>نظام الغرفة</small>هذه بداية المحادثة داخل الغرفة.</div>';
 
-  $("openSidebarBtn").addEventListener("click", openSidebar);
-  $("closeSidebarBtn").addEventListener("click", closeSidebar);
-  $("openChatBtn").addEventListener("click", openChat);
-  $("closeChatBtn").addEventListener("click", closeChat);
-  $("btnChat").addEventListener("click", toggleChat);
-  $("drawerBackdrop").addEventListener("click", () => { closeSidebar(); closeChat(); });
-
-  $("btnMic").addEventListener("click", toggleMic);
-  $("btnMicSide").addEventListener("click", toggleMic);
   $("copyCodeBtn").addEventListener("click", copyCode);
-  $("copyCodeBtnWide").addEventListener("click", copyCode);
-  $("tbStartBtn").addEventListener("click", startGame);
-  $("startGameBtn").addEventListener("click", startGame);
-  $("sendMsgBtn").addEventListener("click", sendMsg);
-  $("leaveBtn").addEventListener("click", confirmLeave);
-  $("actionSubmitBtn").addEventListener("click", sendNightAction);
-  $("resetGameBtn").addEventListener("click", resetGame);
-  $("closeResultsBtn").addEventListener("click", () => $("resultDrawer").classList.add("hidden"));
-  $("closeMinPlayersBtn").addEventListener("click", () => $("minPlayersModal").classList.add("hidden"));
-
-  $("chatInput").addEventListener("keydown", event => {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      sendMsg();
-    }
-  });
-
-  const resumeAudio = async () => {
-    if (state.audioCtx && state.audioCtx.state === "suspended") {
-      try { await state.audioCtx.resume(); } catch (_) {}
-    }
-    Object.values(remoteAudios).forEach(audio => audio.play().catch(() => {}));
-  };
+  $("copyCodeInline").addEventListener("click", copyCode);
+  $("openChatBtn").addEventListener("click", openChat);
+  $("bottomChatBtn").addEventListener("click", openChat);
+  $("openInfoBtn").addEventListener("click", openInfo);
+  $("bottomInfoBtn").addEventListener("click", openInfo);
+  $("closeChatBtn").addEventListener("click", closeDrawers);
+  $("closeInfoBtn").addEventListener("click", closeDrawers);
+  $("drawerBackdrop").addEventListener("click", closeDrawers);
+  $("modalBackdrop").addEventListener("click", () => { closeModal(); closeDrawers(); });
+  $("closeModalBtn").addEventListener("click", closeModal);
+  $("modalOkBtn").addEventListener("click", closeModal);
+  $("toggleMicBtn").addEventListener("click", toggleMic);
+  $("leaveBtn").addEventListener("click", () => { if (confirm("هل تريد مغادرة الغرفة؟")) location.href = "/"; });
+  $("startGameBtn").addEventListener("click", beginStartGame);
+  $("startVoteBtn").addEventListener("click", beginStartVote);
+  $("forceNightBtn").addEventListener("click", beginForceNight);
+  $("resetGameBtn").addEventListener("click", beginResetGame);
+  $("sendBtn").addEventListener("click", sendMessage);
+  $("confirmNightBtn").addEventListener("click", submitNightTarget);
+  $("chatInput").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); sendMessage(); } });
   document.addEventListener("click", resumeAudio);
   document.addEventListener("touchstart", resumeAudio, { passive: true });
-
-  window.addEventListener("resize", () => {
-    if (window.innerWidth > 1280) closeSidebar();
-    if (window.innerWidth > 1080) openChat();
-    syncDrawerBackdrop();
-  });
 });

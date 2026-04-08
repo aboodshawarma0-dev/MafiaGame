@@ -1,0 +1,16 @@
+<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="hair" x1="28" y1="18" x2="92" y2="70"><stop stop-color="#F6DF9B"/><stop offset="1" stop-color="#B47B2C"/></linearGradient>
+    <linearGradient id="coat" x1="30" y1="62" x2="88" y2="100"><stop stop-color="#2C2A33"/><stop offset="1" stop-color="#111016"/></linearGradient>
+  </defs>
+  <circle cx="60" cy="60" r="54" fill="#0E0D13" stroke="#D1A858" stroke-width="1.5"/>
+  <ellipse cx="60" cy="72" rx="24" ry="20" fill="url(#coat)"/>
+  <circle cx="60" cy="49" r="21" fill="#F3D2B4"/>
+  <path d="M40 38C48 22 75 21 82 39C77 34 71 33 66 35C61 30 50 31 40 38Z" fill="url(#hair)"/>
+  <path d="M42 44C43 31 54 24 65 24C78 24 83 33 83 45C79 39 76 36 72 35C68 39 61 43 42 44Z" fill="url(#hair)"/>
+  <circle cx="52" cy="50" r="3.2" fill="#1A1720"/>
+  <circle cx="68" cy="50" r="3.2" fill="#1A1720"/>
+  <path d="M54 60C58 63 62 63 66 60" stroke="#B7794B" stroke-width="2" stroke-linecap="round"/>
+  <path d="M48 70L58 80L72 64" stroke="#D1A858" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M40 72C44 68 49 67 54 68" stroke="#FFF0C3" stroke-width="1.4" opacity="0.4"/>
+</svg>
