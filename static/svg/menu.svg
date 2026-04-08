@@ -1,0 +1,22 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="menu-g" x1="12" y1="10" x2="52" y2="54" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F3D37C"/>
+      <stop offset="1" stop-color="#C89433"/>
+    </linearGradient>
+    <filter id="menu-glow" x="0" y="0" width="64" height="64" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="3"/>
+    </filter>
+  </defs>
+  <rect x="10" y="12" width="44" height="40" rx="14" fill="#0B1020" stroke="rgba(243,211,124,0.32)"/>
+  <g filter="url(#menu-glow)" opacity="0.35">
+    <rect x="18" y="20" width="28" height="4" rx="2" fill="#F3D37C"/>
+    <rect x="18" y="30" width="28" height="4" rx="2" fill="#F3D37C"/>
+    <rect x="18" y="40" width="28" height="4" rx="2" fill="#F3D37C"/>
+  </g>
+  <rect x="18" y="20" width="28" height="4" rx="2" fill="url(#menu-g)"/>
+  <rect x="18" y="30" width="28" height="4" rx="2" fill="url(#menu-g)"/>
+  <rect x="18" y="40" width="28" height="4" rx="2" fill="url(#menu-g)"/>
+  <circle cx="50" cy="16" r="2" fill="#FF6B6B"/>
+  <circle cx="14" cy="48" r="2" fill="#53E1C0"/>
+</svg>

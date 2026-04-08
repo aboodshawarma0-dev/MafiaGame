@@ -3,86 +3,86 @@
 const TOKEN = window.ROOM_TOKEN || "";
 const ROOM_NAME = window.ROOM_NAME || "";
 const USERNAME = localStorage.getItem("omerta_user") || "ضيف";
-const CHAR_ID = localStorage.getItem("omerta_char") || "char1";
+const AVATAR_KEY = localStorage.getItem("omerta_char") || "unknown";
 const CUSTOM_IMG = localStorage.getItem("omerta_custom") || "";
 const AVATAR_TYPE = localStorage.getItem("omerta_avatarType") || (CUSTOM_IMG ? "custom" : "builtin");
 
-const CHARS = {
-  char1: '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="48" fill="#1a1a2e"/><rect x="30" y="60" width="40" height="35" rx="6" fill="#2d2d44"/><rect x="35" y="62" width="30" height="30" rx="4" fill="#1e1e3a"/><polygon points="50,64 47,72 50,80 53,72" fill="#e63946"/><ellipse cx="50" cy="40" rx="16" ry="18" fill="#f5c8a0"/><ellipse cx="50" cy="25" rx="16" ry="8" fill="#1a0a00"/><ellipse cx="44" cy="38" rx="3" ry="3.5" fill="#fff"/><ellipse cx="56" cy="38" rx="3" ry="3.5" fill="#fff"/><circle cx="44.5" cy="38.5" r="2" fill="#1a1a2e"/><circle cx="56.5" cy="38.5" r="2" fill="#1a1a2e"/><rect x="33" y="22" width="34" height="5" rx="2" fill="#0d0d1a"/><rect x="37" y="12" width="26" height="12" rx="4" fill="#0d0d1a"/></svg>',
-  char2: '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="48" fill="#1a0a0a"/><path d="M25 65 Q30 58 50 58 Q70 58 75 65 L78 95 L22 95 Z" fill="#2a0a0a"/><ellipse cx="50" cy="40" rx="17" ry="19" fill="#d4a070"/><ellipse cx="43" cy="37" rx="3.5" ry="4" fill="#fff"/><ellipse cx="57" cy="37" rx="3.5" ry="4" fill="#fff"/><circle cx="43.5" cy="37.5" r="2.2" fill="#3a1000"/><circle cx="57.5" cy="37.5" r="2.2" fill="#3a1000"/><ellipse cx="50" cy="24" rx="20" ry="5" fill="#1a0a00"/><rect x="35" y="13" width="30" height="13" rx="5" fill="#1a0a00"/></svg>',
-  char3: '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="48" fill="#0a1a1a"/><rect x="28" y="60" width="44" height="36" rx="6" fill="#e8e8f0"/><rect x="46" y="65" width="8" height="20" rx="1" fill="#e63946"/><rect x="40" y="71" width="20" height="8" rx="1" fill="#e63946"/><ellipse cx="50" cy="40" rx="16" ry="18" fill="#f8d0b0"/><ellipse cx="43" cy="38" rx="3" ry="3.5" fill="#fff"/><ellipse cx="57" cy="38" rx="3" ry="3.5" fill="#fff"/><circle cx="43" cy="38" r="2" fill="#2d5a8e"/><circle cx="57" cy="38" r="2" fill="#2d5a8e"/></svg>',
-  char4: '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="48" fill="#0a0a1a"/><path d="M22 62 L30 58 L50 60 L70 58 L78 62 L80 95 L20 95Z" fill="#3a3050"/><ellipse cx="50" cy="40" rx="16" ry="18" fill="#e8c090"/><rect x="36" y="13" width="28" height="13" rx="5" fill="#2a2040"/><ellipse cx="42" cy="38" rx="6" ry="5" fill="none" stroke="#c9a84c" stroke-width="1.5"/><ellipse cx="58" cy="38" rx="6" ry="5" fill="none" stroke="#c9a84c" stroke-width="1.5"/><circle cx="42" cy="38" r="3" fill="#1a3a5f"/><circle cx="58" cy="38" r="3" fill="#1a3a5f"/></svg>',
-  char5: '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="48" fill="#06060e"/><ellipse cx="50" cy="40" rx="15" ry="17" fill="#0a0a1a"/><ellipse cx="43" cy="38" rx="4" ry="5" fill="#60aaff" opacity=".9"/><ellipse cx="57" cy="38" rx="4" ry="5" fill="#60aaff" opacity=".9"/><ellipse cx="43" cy="38" rx="2.5" ry="3" fill="#fff" opacity=".6"/><ellipse cx="57" cy="38" rx="2.5" ry="3" fill="#fff" opacity=".6"/></svg>',
-  char6: '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="48" fill="#1a0a2a"/><path d="M28 60 Q50 56 72 60 L78 95 L22 95Z" fill="#4a1a6a"/><ellipse cx="50" cy="40" rx="15" ry="17" fill="#f0c8a0"/><rect x="35" y="18" width="30" height="6" rx="1" fill="#c9a84c"/><ellipse cx="43" cy="38" rx="3.5" ry="4" fill="#fff"/><ellipse cx="57" cy="38" rx="3.5" ry="4" fill="#fff"/><circle cx="43" cy="38" r="2.2" fill="#6a0080"/><circle cx="57" cy="38" r="2.2" fill="#6a0080"/></svg>'
+const AVATARS = {
+  unknown: "/static/svg/avatar-unknown.svg",
+  raven: "/static/svg/avatar-raven.svg",
+  medic: "/static/svg/avatar-medic.svg",
+  warden: "/static/svg/avatar-warden.svg",
+  oracle: "/static/svg/avatar-oracle.svg",
+  smith: "/static/svg/avatar-smith.svg",
+  velvet: "/static/svg/avatar-velvet.svg"
 };
 
 const ROLE_INFO = {
-  mafia: { icon: "🗡️", label: "المافيا", desc: "نسّق مع المافيا وحددوا الضحية قبل الصباح." },
-  citizen: { icon: "🛡️", label: "المواطن", desc: "حلّل الكلام وصوّت بحكمة لإنقاذ المدينة." },
-  doctor: { icon: "🩺", label: "الطبيب", desc: "اختر لاعباً واحداً لتنقذه خلال الليل." },
-  detective: { icon: "🕵️", label: "الكاشف", desc: "اكشف حقيقة لاعب واحد كل ليلة." }
+  mafia: { label: "المافيا", color: "#ff6b6b", desc: "اختاروا الضحية سراً قبل الصباح.", icon: "/static/svg/role-mafia.svg" },
+  citizen: { label: "المواطن", color: "#53e1c0", desc: "حلّل وتناقش وصوّت بذكاء.", icon: "/static/svg/role-citizen.svg" },
+  doctor: { label: "الطبيب", color: "#6fc8ff", desc: "احمِ لاعباً واحداً في هذه الجولة.", icon: "/static/svg/role-doctor.svg" },
+  detective: { label: "الكاشف", color: "#f3d37c", desc: "اكشف حقيقة لاعب واحد دون أن يراك أحد.", icon: "/static/svg/role-detective.svg" }
 };
 
 const PHASE_COPY = {
-  waiting: { title: "اللوبي", subtitle: "تجهيز اللاعبين والصوت قبل بدء اللعبة." },
-  role_reveal: { title: "توزيع الأدوار", subtitle: "تم كتم الجميع الآن حتى يطّلع كل لاعب على دوره بسرية." },
-  mafia: { title: "استيقاظ المافيا", subtitle: "المافيا فقط يسمعون بعضهم الآن." },
-  doctor: { title: "استيقاظ الطبيب", subtitle: "دور الطبيب: اختر من تريد إنقاذه." },
-  detective: { title: "استيقاظ الكاشف", subtitle: "دور الكاشف: اختر من تريد معرفة هويته." },
-  day: { title: "النهار", subtitle: "الآن الجميع الأحياء يسمعون بعضهم ويتناقشون." },
-  voting: { title: "التصويت", subtitle: "صوّت على اللاعب الذي تشك أنه من المافيا." },
-  results: { title: "النتائج", subtitle: "تم كشف الشخصيات وإعلان الفائز." }
+  waiting: { title: "اللوبي", subtitle: "الجميع يستطيع الكلام قبل بداية اللعبة.", icon: "/static/svg/room.svg" },
+  role_reveal: { title: "توزيع الأدوار", subtitle: "تم كتم الجميع مؤقتاً حتى يرى كل لاعب كرت دوره.", icon: "/static/svg/cards.svg" },
+  mafia: { title: "دور المافيا", subtitle: "المافيا فقط تتواصل الآن وتحدد الهدف.", icon: "/static/svg/role-mafia.svg" },
+  doctor: { title: "دور الطبيب", subtitle: "الطبيب يختار من يحميه الآن.", icon: "/static/svg/role-doctor.svg" },
+  detective: { title: "دور الكاشف", subtitle: "الكاشف يختار اللاعب الذي يريد كشفه.", icon: "/static/svg/role-detective.svg" },
+  day: { title: "النهار", subtitle: "قناة عامة للأحياء من أجل النقاش.", icon: "/static/svg/chat.svg" },
+  voting: { title: "التصويت", subtitle: "اختر اللاعب الذي تشك به.", icon: "/static/svg/players.svg" },
+  results: { title: "النتائج", subtitle: "تم كشف الشخصيات وإعلان الفائز.", icon: "/static/svg/cards.svg" }
 };
 
-const RTC_CONFIG = {
-  iceServers: [
-    { urls: "stun:stun.l.google.com:19302" },
-    { urls: "stun:stun1.l.google.com:19302" },
-    { urls: "stun:stun2.l.google.com:19302" }
-  ]
-};
+const socket = io({ transports: ["websocket", "polling"], reconnection: true, reconnectionAttempts: Infinity, timeout: 20000 });
+const RTC_CONFIG = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }, { urls: "stun:stun1.l.google.com:19302" }] };
+const $ = id => document.getElementById(id);
 
-const S = {
+const state = {
   mySid: null,
   isHost: false,
   myRole: null,
+  roleMeta: null,
   players: [],
-  maxPlayers: 12,
   phase: "waiting",
   round: 0,
   deadline: null,
-  mayTalk: true,
-  allowedListen: [],
-  micOn: false,
-  chatOpen: window.innerWidth > 1320,
-  sidebarOpen: false,
-  stream: null,
-  audioCtx: null,
-  analyser: null,
   selectedTarget: null,
   selectedVote: null,
   privatePrompt: null,
-  roleMeta: null,
-  voteCounts: {}
+  voteCounts: {},
+  maxPlayers: 12,
+  mayTalk: true,
+  allowedListen: [],
+  micOn: false,
+  sidebarOpen: false,
+  chatOpen: window.innerWidth > 1080,
+  stream: null,
+  audioCtx: null,
+  analyser: null
 };
 
 const peers = {};
 const remoteAudios = {};
-let speakingFrame = null;
 let countdownTimer = null;
-
-const socket = io({ transports: ["websocket", "polling"], reconnection: true, reconnectionAttempts: Infinity, timeout: 20000 });
-const $ = id => document.getElementById(id);
+let speakingLoop = null;
 
 function esc(value) {
   return String(value || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-function avatarHtml(avatar, customImg) {
-  if (customImg && customImg.startsWith("data:")) {
-    return `<img src="${customImg}" alt="avatar"/>`;
-  }
-  return CHARS[avatar] || CHARS.char1;
+function avatarSrc(avatar, customImg) {
+  if (customImg && customImg.startsWith("data:")) return customImg;
+  return AVATARS[avatar] || AVATARS.unknown;
+}
+
+function avatarHtml(avatar, customImg, alt = "avatar") {
+  return `<img src="${avatarSrc(avatar, customImg)}" alt="${alt}" />`;
+}
+
+function roleData(role) {
+  return ROLE_INFO[role] || ROLE_INFO.citizen;
 }
 
 function seatLabel(index) {
@@ -90,106 +90,152 @@ function seatLabel(index) {
 }
 
 function getPlayerBySid(sid) {
-  return S.players.find(player => player.sid === sid) || null;
+  return state.players.find(player => player.sid === sid) || null;
+}
+
+function showToast(message, timeout = 2600) {
+  const wrap = $("toastContainer");
+  const toast = document.createElement("div");
+  toast.className = "toast";
+  toast.textContent = message;
+  wrap.appendChild(toast);
+  setTimeout(() => {
+    toast.style.opacity = "0";
+    toast.style.transform = "translateY(-4px)";
+    setTimeout(() => toast.remove(), 200);
+  }, timeout);
+}
+
+function syncDrawerBackdrop() {
+  const shouldOpen = state.sidebarOpen || state.chatOpen;
+  $("drawerBackdrop").classList.toggle("hidden", !shouldOpen || window.innerWidth > 1280 && !state.chatOpen);
+}
+
+function openSidebar() {
+  state.sidebarOpen = true;
+  $("sidebar").classList.add("open");
+  syncDrawerBackdrop();
+}
+
+function closeSidebar() {
+  state.sidebarOpen = false;
+  $("sidebar").classList.remove("open");
+  syncDrawerBackdrop();
+}
+
+function openChat() {
+  state.chatOpen = true;
+  $("chatPanel").classList.add("open");
+  syncDrawerBackdrop();
+}
+
+function closeChat() {
+  state.chatOpen = false;
+  $("chatPanel").classList.remove("open");
+  syncDrawerBackdrop();
+}
+
+function toggleSidebar() {
+  state.sidebarOpen ? closeSidebar() : openSidebar();
+}
+
+function toggleChat() {
+  state.chatOpen ? closeChat() : openChat();
+}
+
+function renderSelfCard() {
+  $("upAvatar").innerHTML = avatarHtml(AVATAR_KEY, CUSTOM_IMG, USERNAME);
+  $("upName").textContent = USERNAME;
 }
 
 function createBoardSeats() {
   const board = $("seatBoard");
-  if (!board) return;
   board.innerHTML = "";
-  for (let i = 0; i < 12; i += 1) {
+  for (let index = 0; index < 12; index += 1) {
     const seat = document.createElement("div");
-    seat.className = `seat empty s${i}`;
-    seat.dataset.seat = String(i);
-    seat.dataset.label = seatLabel(i);
+    seat.className = `seat empty pos-${index}`;
+    seat.dataset.seat = String(index);
+    seat.dataset.label = seatLabel(index);
     board.appendChild(seat);
   }
 }
 
 function renderBoard() {
-  const board = $("seatBoard");
-  if (!board) return;
-  board.querySelectorAll(".seat").forEach(seat => {
+  document.querySelectorAll(".seat").forEach(seat => {
     seat.classList.add("empty");
     seat.innerHTML = "";
   });
 
-  S.players.forEach(player => {
-    const seat = board.querySelector(`.seat[data-seat="${player.seat}"]`);
+  state.players.forEach(player => {
+    const seat = document.querySelector(`.seat[data-seat="${player.seat}"]`);
     if (!seat) return;
     seat.classList.remove("empty");
+    const mutedBadge = player.mic ? "" : `<span class="badge muted">صامت</span>`;
+    const hostBadge = player.is_host ? `<span class="badge host">هوست</span>` : "";
     seat.innerHTML = `
       <div class="player-tile ${player.speaking ? "speaking" : ""} ${!player.alive ? "dead" : ""}">
-        <div class="player-avatar">${avatarHtml(player.avatar, player.customImg)}</div>
+        <div class="player-avatar">${avatarHtml(player.avatar, player.customImg, player.username)}</div>
         <div class="player-name">${esc(player.username)}</div>
         <div class="player-state">${player.alive ? (player.speaking ? "يتكلم الآن" : "جاهز") : "خارج الجولة"}</div>
-        <div class="player-badges">
-          ${player.is_host ? '<span class="badge host">هوست</span>' : ""}
-          ${!player.mic ? '<span class="badge muted">صامت</span>' : ""}
-        </div>
+        <div class="player-badges">${hostBadge}${mutedBadge}</div>
       </div>`;
   });
 
-  $("userCount").textContent = String(S.players.length);
-  $("sidebarCount").textContent = String(S.players.length);
-  $("maxCount").textContent = String(S.maxPlayers);
+  $("userCount").textContent = String(state.players.length);
+  $("sidebarCount").textContent = String(state.players.length);
 }
 
 function renderSidebarPlayers() {
   const wrap = $("sidebarPlayers");
-  if (!wrap) return;
   wrap.innerHTML = "";
-  S.players.forEach(player => {
-    const el = document.createElement("div");
-    el.className = `side-player ${!player.alive ? "dead" : ""}`;
-    el.innerHTML = `
-      <div class="side-player-avatar">${avatarHtml(player.avatar, player.customImg)}</div>
+  state.players.forEach(player => {
+    const micIcon = player.mic ? "/static/svg/mic-on.svg" : "/static/svg/mic-off.svg";
+    const crown = player.is_host ? `<img src="/static/svg/crown.svg" alt="host" class="badge-icon" />` : "";
+    const item = document.createElement("div");
+    item.className = `side-player ${!player.alive ? "dead" : ""}`;
+    item.innerHTML = `
+      <div class="side-player-avatar">${avatarHtml(player.avatar, player.customImg, player.username)}</div>
       <div class="side-player-name">${esc(player.username)}</div>
-      <div class="side-player-meta">${player.is_host ? "👑" : player.mic ? "🎙️" : "🔇"}</div>`;
-    wrap.appendChild(el);
+      <div class="side-player-meta">${crown}<img src="${micIcon}" alt="mic" /></div>`;
+    wrap.appendChild(item);
   });
-}
-
-function renderSelfCard() {
-  $("upAvatar").innerHTML = avatarHtml(CHAR_ID, CUSTOM_IMG);
-  $("upName").textContent = USERNAME;
-}
-
-function updateCenterCard(text) {
-  $("centerRound").textContent = S.phase === "waiting" ? "بانتظار بدء اللعبة" : `الجولة ${S.round || 1}`;
-  $("centerAnnouncement").textContent = text || "";
 }
 
 function updateHostButtons() {
-  const tooFew = S.players.length < 4;
-  const show = S.isHost && S.phase === "waiting";
-  [$("tbStartBtn"), $("startGameBtn")].forEach(btn => {
-    if (!btn) return;
-    btn.classList.toggle("hidden", !show);
-    btn.disabled = tooFew;
-    btn.style.opacity = tooFew ? "0.55" : "1";
+  const shouldShow = state.isHost && state.phase === "waiting";
+  const tooFew = state.players.length < 4;
+  [$("tbStartBtn"), $("startGameBtn")].forEach(button => {
+    button.classList.toggle("hidden", !shouldShow);
+    button.disabled = tooFew;
   });
+  $("resetGameBtn").style.display = state.isHost ? "inline-flex" : "none";
 }
 
-function updateSidebarPhase() {
-  const copy = PHASE_COPY[S.phase] || PHASE_COPY.waiting;
-  $("sidebarPhaseVal").textContent = copy.title;
-  $("topBarPhase").textContent = `${copy.title} — ${copy.subtitle}`;
-  $("upStatus").textContent = S.mayTalk ? "يمكنك الكلام" : "صامت حسب المرحلة";
+function updateMicUI() {
+  const icon = state.micOn ? "/static/svg/mic-on.svg" : "/static/svg/mic-off.svg";
+  $("micStateIcon").src = icon;
+  $("sideMicIcon").src = icon;
 }
 
-function updatePolicyCard() {
-  const labels = {
-    waiting: "🔊 الجميع يسمعون الجميع",
-    role_reveal: "🤫 تم كتم الجميع أثناء توزيع الأدوار",
-    mafia: S.myRole === "mafia" ? "🗡️ أنت في قناة المافيا" : "🔕 لا أحد يسمعك الآن",
-    doctor: S.myRole === "doctor" ? "🩺 وقت الطبيب" : "🔕 لا أحد يسمعك الآن",
-    detective: S.myRole === "detective" ? "🕵️ وقت الكاشف" : "🔕 لا أحد يسمعك الآن",
-    day: "🌤️ جميع الأحياء في قناة عامة",
-    voting: "🗳️ تصويت مع قناة عامة",
-    results: "🏁 نهاية الجولة"
-  };
-  $("policyCard").textContent = labels[S.phase] || labels.waiting;
+function policyCopy() {
+  if (state.phase === "waiting") return "قناة عامة مفتوحة للجميع";
+  if (state.phase === "role_reveal") return "تم كتم الجميع حتى تظهر الأدوار";
+  if (state.phase === "mafia") return state.myRole === "mafia" ? "أنت داخل قناة المافيا فقط" : "القناة مغلقة عليك الآن";
+  if (state.phase === "doctor") return state.myRole === "doctor" ? "وقت الطبيب فقط" : "القناة مغلقة عليك الآن";
+  if (state.phase === "detective") return state.myRole === "detective" ? "وقت الكاشف فقط" : "القناة مغلقة عليك الآن";
+  if (state.phase === "day") return "قناة عامة للأحياء";
+  if (state.phase === "voting") return "مرحلة التصويت العامة";
+  return "انتهت الجولة";
+}
+
+function updatePhaseUI(copyText = "") {
+  const phaseMeta = PHASE_COPY[state.phase] || PHASE_COPY.waiting;
+  $("sidebarPhaseVal").textContent = phaseMeta.title;
+  $("topBarPhase").textContent = `${phaseMeta.title} — ${phaseMeta.subtitle}`;
+  $("policyCard").textContent = policyCopy();
+  $("upStatus").textContent = state.mayTalk ? "يمكنك الكلام" : "صامت حسب المرحلة";
+  $("centerRound").textContent = state.phase === "waiting" ? "بانتظار بدء اللعبة" : `الجولة ${state.round || 1}`;
+  $("centerAnnouncement").textContent = copyText || phaseMeta.subtitle;
 }
 
 function startCountdown(deadline) {
@@ -199,213 +245,175 @@ function startCountdown(deadline) {
     return;
   }
   const tick = () => {
-    const diff = Math.max(0, Math.ceil(deadline - Date.now() / 1000));
-    const mins = String(Math.floor(diff / 60)).padStart(2, "0");
-    const secs = String(diff % 60).padStart(2, "0");
-    $("phaseTimer").textContent = `${mins}:${secs}`;
+    const ms = Math.max(0, Math.floor(deadline * 1000 - Date.now()));
+    const total = Math.ceil(ms / 1000);
+    const minutes = String(Math.floor(total / 60)).padStart(2, "0");
+    const seconds = String(total % 60).padStart(2, "0");
+    $("phaseTimer").textContent = `${minutes}:${seconds}`;
+    if (total <= 0) clearInterval(countdownTimer);
   };
   tick();
-  countdownTimer = setInterval(tick, 300);
+  countdownTimer = setInterval(tick, 400);
 }
 
-function roleName(roleKey) {
-  const data = S.roleMeta || {};
-  if (data.role === roleKey) return data.label;
-  return roleKey || "—";
+function renderSelection(list, mode) {
+  const wrapId = mode === "vote" ? "voteList" : "actionList";
+  const wrap = $(wrapId);
+  wrap.innerHTML = "";
+  list.forEach(item => {
+    const player = getPlayerBySid(item.sid);
+    const card = document.createElement("button");
+    card.type = "button";
+    const active = mode === "vote" ? state.selectedVote === item.sid : state.selectedTarget === item.sid;
+    card.className = `selection-card${active ? " active" : ""}`;
+    card.innerHTML = `
+      <div class="selection-avatar">${avatarHtml(player?.avatar, player?.customImg, item.username)}</div>
+      <div>
+        <div class="selection-name">${esc(item.username)}</div>
+        <div class="selection-meta">${mode === "vote" ? "تصويت علني" : "اختيار خاص"}</div>
+      </div>
+      <div class="selection-meta">${mode === "vote" ? (state.voteCounts[item.sid] || 0) : "اختيار"}</div>`;
+    card.addEventListener("click", () => {
+      if (mode === "vote") {
+        if (state.selectedVote) return;
+        state.selectedVote = item.sid;
+        socket.emit("cast_vote", { room: TOKEN, target_sid: item.sid });
+      } else {
+        state.selectedTarget = item.sid;
+        renderOverlay();
+      }
+    });
+    wrap.appendChild(card);
+  });
 }
 
 function renderOverlay() {
   const overlay = $("phaseOverlay");
-  const resultDrawer = $("resultDrawer");
-  resultDrawer.classList.add("hidden");
-  if (S.phase === "waiting" || S.phase === "results") {
-    overlay.classList.add("hidden");
-    return;
-  }
-
-  const copy = PHASE_COPY[S.phase] || PHASE_COPY.waiting;
-  $("overlayBadge").textContent = copy.title;
-  $("overlayTitle").textContent = copy.title;
-  $("overlaySubtitle").textContent = S.privatePrompt?.subtitle || copy.subtitle;
-  overlay.classList.remove("hidden");
-
-  const roleCard = $("roleRevealCard");
-  const actionPanel = $("actionPanel");
-  const votePanel = $("votePanel");
-  roleCard.classList.add("hidden");
-  votePanel.classList.add("hidden");
-  actionPanel.classList.remove("hidden");
+  const phaseMeta = PHASE_COPY[state.phase] || PHASE_COPY.waiting;
+  $("overlayIcon").src = phaseMeta.icon;
+  $("overlayBadge").textContent = phaseMeta.title;
+  $("overlayTitle").textContent = phaseMeta.title;
+  $("overlaySubtitle").textContent = phaseMeta.subtitle;
+  $("roleRevealCard").classList.add("hidden");
+  $("selectionWrap").classList.add("hidden");
+  $("votePanel").classList.add("hidden");
   $("actionSubmitBtn").classList.add("hidden");
-  $("actionList").innerHTML = "";
 
-  if (S.phase === "role_reveal") {
-    roleCard.classList.remove("hidden");
-    actionPanel.classList.add("hidden");
-    const info = S.roleMeta || { icon: "🎭", label: "مجهول", role: "citizen" };
-    $("roleCardIcon").textContent = info.icon || "🎭";
-    $("roleCardName").textContent = info.label || "—";
-    $("roleCardDesc").textContent = ROLE_INFO[info.role]?.desc || "";
-    return;
-  }
-
-  if (S.phase === "voting") {
-    actionPanel.classList.add("hidden");
-    votePanel.classList.remove("hidden");
-    renderVoteList();
-    return;
-  }
-
-  if (["mafia", "doctor", "detective"].includes(S.phase)) {
-    const canAct = S.privatePrompt && S.privatePrompt.phase === S.phase;
-    if (!canAct) {
-      $("actionList").innerHTML = `<div class="modal-body">${copy.subtitle}</div>`;
-      return;
+  if (state.phase === "role_reveal") {
+    overlay.classList.remove("hidden");
+    if (state.myRole) {
+      const role = roleData(state.myRole);
+      $("roleRevealCard").classList.remove("hidden");
+      $("roleCardIcon").src = role.icon;
+      $("roleCardName").textContent = role.label;
+      $("roleCardName").style.color = role.color;
+      $("roleCardDesc").textContent = role.desc;
     }
-    renderActionTargets(S.privatePrompt.targets || []);
-    $("actionSubmitBtn").classList.remove("hidden");
     return;
   }
 
-  if (S.phase === "day") {
-    $("actionList").innerHTML = `<div class="modal-body">${esc($("centerAnnouncement").textContent)}</div>`;
-  }
-}
-
-function renderActionTargets(targets) {
-  const wrap = $("actionList");
-  wrap.innerHTML = "";
-  targets.forEach(target => {
-    const player = getPlayerBySid(target.sid);
-    const card = document.createElement("div");
-    card.className = `target-card ${S.selectedTarget === target.sid ? "selected" : ""}`;
-    card.innerHTML = `
-      <div class="target-avatar">${avatarHtml(player?.avatar || "char1", player?.customImg || "")}</div>
-      <div class="target-name">${esc(target.username)}</div>`;
-    card.addEventListener("click", () => {
-      S.selectedTarget = target.sid;
-      renderActionTargets(targets);
-    });
-    wrap.appendChild(card);
-  });
-}
-
-function renderVoteList() {
-  const wrap = $("voteList");
-  wrap.innerHTML = "";
-  const alive = S.players.filter(player => player.alive);
-  alive.forEach(player => {
-    const card = document.createElement("div");
-    const count = S.voteCounts[player.sid] || 0;
-    card.className = `vote-card ${S.selectedVote === player.sid ? "selected" : ""}`;
-    card.innerHTML = `
-      <div class="vote-avatar">${avatarHtml(player.avatar, player.customImg)}</div>
-      <div class="vote-name">${esc(player.username)}</div>
-      <div class="vote-count">${count} صوت</div>`;
-    if (player.sid !== S.mySid) {
-      card.addEventListener("click", () => {
-        S.selectedVote = player.sid;
-        socket.emit("cast_vote", { room: TOKEN, target_sid: player.sid });
-        renderVoteList();
-      });
+  if (["mafia", "doctor", "detective"].includes(state.phase)) {
+    overlay.classList.remove("hidden");
+    if (state.privatePrompt) {
+      $("overlayTitle").textContent = state.privatePrompt.title || phaseMeta.title;
+      $("overlaySubtitle").textContent = state.privatePrompt.subtitle || phaseMeta.subtitle;
+      if ((state.privatePrompt.targets || []).length) {
+        $("selectionWrap").classList.remove("hidden");
+        $("actionSubmitBtn").classList.remove("hidden");
+        $("actionSubmitBtn").disabled = !state.selectedTarget;
+        renderSelection(state.privatePrompt.targets || [], "action");
+      }
     }
-    wrap.appendChild(card);
-  });
+    return;
+  }
+
+  if (state.phase === "voting") {
+    overlay.classList.remove("hidden");
+    $("votePanel").classList.remove("hidden");
+    renderSelection((state.players || []).filter(p => p.alive).map(p => ({ sid: p.sid, username: p.username })), "vote");
+    return;
+  }
+
+  overlay.classList.add("hidden");
 }
 
 function renderResults(data) {
-  $("resultsWinner").textContent = data.winner === "mafia" ? "فازت المافيا" : "فاز المواطنون";
-  $("resultsLabel").textContent = data.label || "";
+  $("resultsWinner").textContent = data.winner === "mafia" ? "فاز فريق المافيا" : "فاز فريق المواطنين";
+  $("resultsLabel").textContent = data.label || "انتهت الجولة";
   const grid = $("resultsGrid");
   grid.innerHTML = "";
   (data.players || []).forEach(player => {
-    const el = document.createElement("div");
-    el.className = `result-player ${!player.alive ? "dead" : ""}`;
-    el.innerHTML = `
-      <div class="player-avatar">${avatarHtml(player.avatar, player.customImg)}</div>
-      <div class="player-name">${esc(player.username)}</div>
-      <div class="player-state">${esc(ROLE_INFO[player.role]?.label || player.role || "")}</div>`;
-    grid.appendChild(el);
+    const role = roleData(player.role);
+    const item = document.createElement("article");
+    item.className = `result-card ${!player.alive ? "dead" : ""}`;
+    item.innerHTML = `
+      <img class="avatar" src="${avatarSrc(player.avatar, player.customImg)}" alt="${esc(player.username)}" />
+      <img class="role" src="${role.icon}" alt="${role.label}" />
+      <div class="name">${esc(player.username)}</div>
+      <div class="role-name">${role.label}</div>`;
+    grid.appendChild(item);
   });
   $("resultDrawer").classList.remove("hidden");
 }
 
-function toast(message, duration = 2800) {
-  const container = $("toastContainer");
+function appendMessage(data) {
+  const wrap = $("chatMessages");
   const item = document.createElement("div");
-  item.className = "toast";
-  item.textContent = message;
-  container.appendChild(item);
-  setTimeout(() => {
-    item.style.opacity = "0";
-    setTimeout(() => item.remove(), 250);
-  }, duration);
-}
-
-function updateMicUI() {
-  const label = S.micOn ? (S.mayTalk ? "🎙️" : "🔕") : "🔇";
-  $("micStateIcon").textContent = label;
-  $("btnMicSide").textContent = label;
-}
-
-function applyAudioPolicy() {
-  if (S.stream) {
-    S.stream.getAudioTracks().forEach(track => {
-      track.enabled = S.micOn && S.mayTalk;
-    });
+  if (data.type === "system") {
+    item.className = "sys-msg";
+    item.textContent = data.msg;
+  } else {
+    item.className = "msg";
+    item.innerHTML = `
+      <div class="msg-head">
+        <div class="msg-avatar">${avatarHtml(data.avatar, data.customImg, data.user)}</div>
+        <div class="msg-name">${esc(data.user)}</div>
+      </div>
+      <div class="msg-text">${esc(data.msg)}</div>`;
   }
-  Object.entries(remoteAudios).forEach(([sid, audio]) => {
-    audio.muted = !S.allowedListen.includes(sid);
-    if (!audio.muted) {
-      audio.play().catch(() => {});
-    }
-  });
-  updateMicUI();
-  updatePolicyCard();
+  wrap.appendChild(item);
+  wrap.scrollTop = wrap.scrollHeight;
 }
 
 async function ensureMic() {
-  if (S.stream) return true;
+  if (state.stream) {
+    state.stream.getTracks().forEach(track => { track.enabled = true; });
+    return true;
+  }
   try {
-    S.stream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-      video: false
-    });
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-    S.audioCtx = new AudioContextClass();
-    const source = S.audioCtx.createMediaStreamSource(S.stream);
-    S.analyser = S.audioCtx.createAnalyser();
-    S.analyser.fftSize = 256;
-    source.connect(S.analyser);
-    startSpeakingDetection();
-    Object.values(peers).forEach(pc => attachLocalTracks(pc));
-    S.players.forEach(player => {
-      if (player.sid !== S.mySid && String(S.mySid) < String(player.sid)) {
-        createOffer(player.sid);
-      }
+    state.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: false });
+    const AudioContextRef = window.AudioContext || window.webkitAudioContext;
+    state.audioCtx = new AudioContextRef();
+    const source = state.audioCtx.createMediaStreamSource(state.stream);
+    state.analyser = state.audioCtx.createAnalyser();
+    state.analyser.fftSize = 256;
+    source.connect(state.analyser);
+    startSpeakingLoop();
+    state.players.forEach(player => {
+      if (player.sid !== state.mySid) createOffer(player.sid);
     });
     return true;
   } catch (error) {
-    console.error(error);
-    toast("تعذر الوصول إلى الميكروفون");
+    showToast("تعذر الوصول إلى الميكروفون");
     return false;
   }
 }
 
-function startSpeakingDetection() {
-  cancelAnimationFrame(speakingFrame);
-  if (!S.analyser) return;
-  const data = new Uint8Array(S.analyser.frequencyBinCount);
-  let lastActive = false;
+function startSpeakingLoop() {
+  cancelAnimationFrame(speakingLoop);
+  if (!state.analyser) return;
+  const buffer = new Uint8Array(state.analyser.frequencyBinCount);
+  let lastState = false;
   const loop = () => {
-    if (!S.analyser) return;
-    S.analyser.getByteFrequencyData(data);
-    const avg = data.reduce((sum, value) => sum + value, 0) / data.length;
-    const active = avg > 18 && S.micOn && S.mayTalk;
-    if (active !== lastActive) {
-      lastActive = active;
+    if (!state.analyser) return;
+    state.analyser.getByteFrequencyData(buffer);
+    const average = buffer.reduce((sum, value) => sum + value, 0) / buffer.length;
+    const active = average > 18 && state.micOn && state.mayTalk;
+    if (active !== lastState) {
+      lastState = active;
       socket.emit("speaking", { room: TOKEN, active });
     }
-    speakingFrame = requestAnimationFrame(loop);
+    speakingLoop = requestAnimationFrame(loop);
   };
   loop();
 }
@@ -422,11 +430,11 @@ function closePeer(sid) {
 }
 
 function attachLocalTracks(pc) {
-  if (!S.stream) return;
+  if (!state.stream) return;
   const senders = pc.getSenders();
-  S.stream.getTracks().forEach(track => {
+  state.stream.getTracks().forEach(track => {
     const exists = senders.some(sender => sender.track && sender.track.id === track.id);
-    if (!exists) pc.addTrack(track, S.stream);
+    if (!exists) pc.addTrack(track, state.stream);
   });
 }
 
@@ -437,15 +445,10 @@ function getOrCreatePeer(sid) {
   }
   const pc = new RTCPeerConnection(RTC_CONFIG);
   peers[sid] = pc;
-
   attachLocalTracks(pc);
-
   pc.onicecandidate = event => {
-    if (event.candidate) {
-      socket.emit("webrtc_ice", { room: TOKEN, target: sid, candidate: event.candidate });
-    }
+    if (event.candidate) socket.emit("webrtc_ice", { room: TOKEN, target: sid, candidate: event.candidate });
   };
-
   pc.ontrack = event => {
     let audio = remoteAudios[sid];
     if (!audio) {
@@ -458,240 +461,201 @@ function getOrCreatePeer(sid) {
     audio.srcObject = event.streams[0];
     applyAudioPolicy();
   };
-
   pc.onconnectionstatechange = () => {
-    if (["failed", "closed"].includes(pc.connectionState)) {
-      closePeer(sid);
-    }
+    if (["failed", "closed", "disconnected"].includes(pc.connectionState)) closePeer(sid);
   };
-
   return pc;
 }
 
 async function createOffer(sid) {
-  if (!S.stream || sid === S.mySid) return;
+  if (!state.stream || sid === state.mySid) return;
   const pc = getOrCreatePeer(sid);
   if (pc.signalingState !== "stable") return;
   try {
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
     socket.emit("webrtc_offer", { room: TOKEN, target: sid, sdp: pc.localDescription });
-  } catch (error) {
-    console.warn("offer failed", error);
+  } catch (_) {}
+}
+
+function applyAudioPolicy() {
+  if (state.stream) {
+    state.stream.getAudioTracks().forEach(track => {
+      track.enabled = state.micOn && state.mayTalk;
+    });
   }
+  Object.entries(remoteAudios).forEach(([sid, audio]) => {
+    audio.muted = !state.allowedListen.includes(sid);
+    if (!audio.muted) audio.play().catch(() => {});
+  });
+  updateMicUI();
+  updatePhaseUI($("centerAnnouncement").textContent);
 }
 
 async function toggleMic() {
-  if (!S.micOn) {
+  if (!state.micOn) {
     const ok = await ensureMic();
     if (!ok) return;
-    S.micOn = true;
+    state.micOn = true;
   } else {
-    S.micOn = false;
+    state.micOn = false;
+    if (state.stream) state.stream.getTracks().forEach(track => { track.enabled = false; });
     socket.emit("speaking", { room: TOKEN, active: false });
   }
   applyAudioPolicy();
-  socket.emit("toggle_mic", { room: TOKEN, state: S.micOn });
+  socket.emit("toggle_mic", { room: TOKEN, state: state.micOn });
 }
 
 function sendMsg() {
   const input = $("chatInput");
-  const msg = (input.value || "").trim();
-  if (!msg) return;
-  socket.emit("chat_msg", { room: TOKEN, msg });
+  const message = (input.value || "").trim();
+  if (!message) return;
+  socket.emit("chat_msg", { room: TOKEN, msg: message });
   input.value = "";
 }
 
-function appendMessage(data) {
-  const wrap = $("chatMessages");
-  const item = document.createElement("div");
-  item.className = data.type === "system" ? "sys-msg" : "msg";
-  if (data.type === "system") {
-    item.textContent = data.msg;
-  } else {
-    item.innerHTML = `<div class="msg-name">${esc(data.user)}</div><div class="msg-text">${esc(data.msg)}</div>`;
-  }
-  wrap.appendChild(item);
-  wrap.scrollTop = wrap.scrollHeight;
+function copyCode() {
+  navigator.clipboard.writeText(TOKEN).then(() => showToast(`تم نسخ الكود ${TOKEN}`)).catch(() => showToast(TOKEN));
 }
 
 function startGame() {
-  if (S.players.length < 4) {
+  if (state.players.length < 4) {
     $("minPlayersModal").classList.remove("hidden");
     return;
   }
   socket.emit("start_game", { room: TOKEN });
 }
 
-function closeMinPlayersModal() {
-  $("minPlayersModal").classList.add("hidden");
-}
-
 function sendNightAction() {
-  if (!S.selectedTarget) {
-    toast("اختر لاعباً أولاً");
+  if (!state.selectedTarget) {
+    showToast("اختر لاعباً أولاً");
     return;
   }
-  socket.emit("night_action", { room: TOKEN, target_sid: S.selectedTarget });
-  toast("تم إرسال اختيارك");
+  socket.emit("night_action", { room: TOKEN, target_sid: state.selectedTarget });
+  $("actionSubmitBtn").disabled = true;
 }
 
 function resetGame() {
   socket.emit("reset_game", { room: TOKEN });
 }
 
-function copyCode() {
-  navigator.clipboard.writeText(TOKEN).then(() => toast(`تم نسخ الكود ${TOKEN}`)).catch(() => toast(TOKEN));
-}
-
-function toggleChat() {
-  S.chatOpen = !S.chatOpen;
-  $("chatPanel").classList.toggle("open", S.chatOpen);
-}
-
-function toggleSidebar() {
-  S.sidebarOpen = !S.sidebarOpen;
-  $("sidebar").classList.toggle("open", S.sidebarOpen);
-}
-
 function confirmLeave() {
-  if (window.confirm("هل تريد مغادرة الغرفة؟")) {
-    window.location.href = "/";
-  }
+  if (window.confirm("هل تريد مغادرة الغرفة؟")) window.location.href = "/";
 }
 
 socket.on("connect", () => {
-  socket.emit("join", {
-    room: TOKEN,
-    username: USERNAME,
-    avatar: CHAR_ID,
-    avatarType: AVATAR_TYPE,
-    customImg: CUSTOM_IMG
-  });
+  socket.emit("join", { room: TOKEN, username: USERNAME, avatar: AVATAR_KEY, avatarType: AVATAR_TYPE, customImg: CUSTOM_IMG });
 });
 
 socket.on("joined_ok", data => {
-  S.mySid = data.my_sid;
-  S.isHost = data.is_host;
-  S.maxPlayers = data.max_players || 12;
+  state.mySid = data.my_sid;
+  state.isHost = data.is_host;
+  state.maxPlayers = data.max_players || 12;
   $("sidebarRoomName").textContent = data.room_name || ROOM_NAME;
   $("sidebarRoomCode").textContent = TOKEN;
   $("topBarRoomName").textContent = data.room_name || ROOM_NAME;
+  renderSelfCard();
   updateHostButtons();
 });
 
 socket.on("phase_change", data => {
-  S.phase = data.phase || "waiting";
-  S.round = data.round || S.round || 0;
-  S.deadline = data.deadline || null;
-  S.privatePrompt = S.privatePrompt && S.privatePrompt.phase === S.phase ? S.privatePrompt : null;
-  S.selectedTarget = null;
-  S.selectedVote = null;
-  S.voteCounts = {};
-  updateSidebarPhase();
-  updateCenterCard(data.announcement || (PHASE_COPY[S.phase] || {}).subtitle || "");
-  startCountdown(S.deadline);
+  state.phase = data.phase || "waiting";
+  state.round = data.round || state.round || 0;
+  state.deadline = data.deadline || null;
+  state.selectedTarget = null;
+  state.selectedVote = null;
+  state.voteCounts = {};
+  if (!state.privatePrompt || state.privatePrompt.phase !== state.phase) state.privatePrompt = null;
+  updatePhaseUI(data.announcement || "");
+  startCountdown(state.deadline);
   renderOverlay();
 });
 
 socket.on("your_role", data => {
-  S.myRole = data.role;
-  S.roleMeta = data;
+  state.myRole = data.role;
+  state.roleMeta = data;
   renderOverlay();
-  toast(`دورك: ${data.label}`);
 });
 
 socket.on("private_prompt", data => {
-  S.privatePrompt = data;
-  if (S.phase === data.phase) {
-    renderOverlay();
-  }
+  state.privatePrompt = data;
+  if (state.phase === data.phase) renderOverlay();
 });
 
 socket.on("update_players", data => {
-  S.players = data.players || [];
-  S.maxPlayers = data.max_players || 12;
+  state.players = data.players || [];
+  state.maxPlayers = data.max_players || 12;
+  state.isHost = !!(state.players.find(p => p.sid === state.mySid)?.is_host);
   renderBoard();
   renderSidebarPlayers();
   updateHostButtons();
-  if (S.stream) {
-    S.players.forEach(player => {
-      if (player.sid !== S.mySid && !peers[player.sid] && String(S.mySid) < String(player.sid)) {
-        createOffer(player.sid);
-      }
+  if (state.stream) {
+    state.players.forEach(player => {
+      if (player.sid !== state.mySid && !peers[player.sid] && String(state.mySid) < String(player.sid)) createOffer(player.sid);
     });
   }
   Object.keys(peers).forEach(sid => {
-    if (!S.players.find(player => player.sid === sid)) {
-      closePeer(sid);
-    }
+    if (!state.players.find(player => player.sid === sid)) closePeer(sid);
   });
 });
 
 socket.on("audio_policy", data => {
-  S.allowedListen = data.allowed_listen || [];
-  S.mayTalk = !!data.may_talk;
+  state.allowedListen = data.allowed_listen || [];
+  state.mayTalk = !!data.may_talk;
   applyAudioPolicy();
 });
 
 socket.on("new_message", appendMessage);
-socket.on("name_taken", data => toast(`الاسم مستخدم، جرب ${data.suggested}`));
-socket.on("error", data => toast(data?.msg || "حدث خطأ"));
-socket.on("action_received", data => toast(data.msg || "تم"));
-socket.on("vote_ack", data => toast(data.msg || "تم التصويت"));
+socket.on("name_taken", data => showToast(`الاسم مستخدم. جرّب ${data.suggested}`));
+socket.on("error", data => showToast(data?.msg || "حدث خطأ"));
+socket.on("action_received", data => showToast(data?.msg || "تم تسجيل الاختيار"));
+socket.on("vote_ack", data => showToast(data?.msg || "تم تسجيل التصويت"));
 
 socket.on("vote_update", data => {
-  S.voteCounts = data.counts || {};
-  if (S.phase === "voting") renderVoteList();
+  state.voteCounts = data.counts || {};
+  if (state.phase === "voting") renderOverlay();
 });
 
 socket.on("detective_result", data => {
-  const message = data.is_mafia ? `${data.username} من المافيا` : `${data.username} ليس من المافيا`;
-  toast(message, 4500);
-  $("overlaySubtitle").textContent = message;
+  const text = data.is_mafia ? `${data.username} من المافيا` : `${data.username} ليس من المافيا`;
+  $("overlaySubtitle").textContent = text;
+  showToast(text, 3600);
 });
 
 socket.on("game_started", data => {
-  S.round = data.round || 1;
+  state.round = data.round || 1;
   $("resultDrawer").classList.add("hidden");
-  toast("بدأت اللعبة");
+  updatePhaseUI("بدأت اللعبة الآن");
+  showToast("بدأت اللعبة");
 });
 
 socket.on("game_over", data => {
-  S.phase = "results";
-  clearInterval(countdownTimer);
+  state.phase = "results";
+  updatePhaseUI(data.label || "انتهت الجولة");
   $("phaseOverlay").classList.add("hidden");
-  updateCenterCard(data.label || "انتهت اللعبة");
+  clearInterval(countdownTimer);
   renderResults(data);
-  updateSidebarPhase();
 });
 
 socket.on("game_reset", () => {
-  S.phase = "waiting";
-  S.round = 0;
-  S.myRole = null;
-  S.privatePrompt = null;
-  S.roleMeta = null;
-  S.selectedTarget = null;
-  S.selectedVote = null;
-  S.voteCounts = {};
+  state.phase = "waiting";
+  state.round = 0;
+  state.myRole = null;
+  state.roleMeta = null;
+  state.privatePrompt = null;
+  state.voteCounts = {};
+  state.selectedVote = null;
+  state.selectedTarget = null;
   $("resultDrawer").classList.add("hidden");
-  updateSidebarPhase();
-  updateCenterCard("اجمع 4 لاعبين على الأقل لبدء الجولة.");
-  renderOverlay();
-  toast("تمت إعادة تعيين اللعبة");
+  $("phaseOverlay").classList.add("hidden");
+  updatePhaseUI("اجمع 4 لاعبين على الأقل ثم ابدأ الجولة الأولى.");
+  showToast("تمت إعادة ضبط اللعبة");
 });
 
-socket.on("disconnect", () => toast("انقطع الاتصال..."));
+socket.on("disconnect", () => showToast("انقطع الاتصال مؤقتاً"));
 socket.on("reconnect", () => {
-  toast("تمت إعادة الاتصال");
-  socket.emit("join", {
-    room: TOKEN,
-    username: USERNAME,
-    avatar: CHAR_ID,
-    avatarType: AVATAR_TYPE,
-    customImg: CUSTOM_IMG
-  });
+  showToast("تمت إعادة الاتصال");
+  socket.emit("join", { room: TOKEN, username: USERNAME, avatar: AVATAR_KEY, avatarType: AVATAR_TYPE, customImg: CUSTOM_IMG });
 });
 
 socket.on("webrtc_offer", async data => {
@@ -701,9 +665,7 @@ socket.on("webrtc_offer", async data => {
     const answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
     socket.emit("webrtc_answer", { room: TOKEN, target: data.from, sdp: pc.localDescription });
-  } catch (error) {
-    console.warn(error);
-  }
+  } catch (_) {}
 });
 
 socket.on("webrtc_answer", async data => {
@@ -711,9 +673,7 @@ socket.on("webrtc_answer", async data => {
   if (!pc) return;
   try {
     await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
-  } catch (error) {
-    console.warn(error);
-  }
+  } catch (_) {}
 });
 
 socket.on("webrtc_ice", async data => {
@@ -721,44 +681,55 @@ socket.on("webrtc_ice", async data => {
   if (!pc || !data.candidate) return;
   try {
     await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
-  } catch (error) {
-    console.warn(error);
-  }
+  } catch (_) {}
 });
 
 document.addEventListener("DOMContentLoaded", () => {
   createBoardSeats();
   renderSelfCard();
-  $("chatPanel").classList.toggle("open", S.chatOpen);
+  updateMicUI();
+  updatePhaseUI("اجمع 4 لاعبين على الأقل ثم ابدأ الجولة الأولى.");
+  $("chatPanel").classList.toggle("open", state.chatOpen);
+
+  $("openSidebarBtn").addEventListener("click", openSidebar);
+  $("closeSidebarBtn").addEventListener("click", closeSidebar);
+  $("openChatBtn").addEventListener("click", openChat);
+  $("closeChatBtn").addEventListener("click", closeChat);
+  $("btnChat").addEventListener("click", toggleChat);
+  $("drawerBackdrop").addEventListener("click", () => { closeSidebar(); closeChat(); });
+
+  $("btnMic").addEventListener("click", toggleMic);
+  $("btnMicSide").addEventListener("click", toggleMic);
+  $("copyCodeBtn").addEventListener("click", copyCode);
+  $("copyCodeBtnWide").addEventListener("click", copyCode);
+  $("tbStartBtn").addEventListener("click", startGame);
+  $("startGameBtn").addEventListener("click", startGame);
+  $("sendMsgBtn").addEventListener("click", sendMsg);
+  $("leaveBtn").addEventListener("click", confirmLeave);
+  $("actionSubmitBtn").addEventListener("click", sendNightAction);
+  $("resetGameBtn").addEventListener("click", resetGame);
+  $("closeResultsBtn").addEventListener("click", () => $("resultDrawer").classList.add("hidden"));
+  $("closeMinPlayersBtn").addEventListener("click", () => $("minPlayersModal").classList.add("hidden"));
+
   $("chatInput").addEventListener("keydown", event => {
     if (event.key === "Enter") {
       event.preventDefault();
       sendMsg();
     }
   });
-  $("upAvatar").innerHTML = avatarHtml(CHAR_ID, CUSTOM_IMG);
-  $("upName").textContent = USERNAME;
-  $("centerAnnouncement").textContent = "اجمع 4 لاعبين على الأقل لبدء الجولة.";
-  updateMicUI();
-  updateSidebarPhase();
 
   const resumeAudio = async () => {
-    if (S.audioCtx && S.audioCtx.state === "suspended") {
-      try { await S.audioCtx.resume(); } catch (_) {}
+    if (state.audioCtx && state.audioCtx.state === "suspended") {
+      try { await state.audioCtx.resume(); } catch (_) {}
     }
     Object.values(remoteAudios).forEach(audio => audio.play().catch(() => {}));
   };
   document.addEventListener("click", resumeAudio);
   document.addEventListener("touchstart", resumeAudio, { passive: true });
-});
 
-window.toggleMic = toggleMic;
-window.toggleChat = toggleChat;
-window.toggleSidebar = toggleSidebar;
-window.sendMsg = sendMsg;
-window.copyCode = copyCode;
-window.startGame = startGame;
-window.sendNightAction = sendNightAction;
-window.resetGame = resetGame;
-window.confirmLeave = confirmLeave;
-window.closeMinPlayersModal = closeMinPlayersModal;
+  window.addEventListener("resize", () => {
+    if (window.innerWidth > 1280) closeSidebar();
+    if (window.innerWidth > 1080) openChat();
+    syncDrawerBackdrop();
+  });
+});

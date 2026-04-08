@@ -1,166 +1,225 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>{{ room_name }} — Omertà</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet"/>
-<link rel="stylesheet" href="/static/css/room.css"/>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ room_name }} — OMERTÀ</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@300;400;500;700;800&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/room.css" />
 </head>
 <body>
-<div class="app-shell">
-  <aside class="sidebar" id="sidebar">
-    <div class="brand-box">
-      <div class="brand-mark">O</div>
-      <div>
-        <div class="brand-name">OMERTÀ</div>
-        <div class="brand-sub">Voice Mafia Arena</div>
-      </div>
-    </div>
+  <div class="embers" aria-hidden="true">
+    <span class="ember e1"></span><span class="ember e2"></span><span class="ember e3"></span><span class="ember e4"></span>
+    <span class="ember e5"></span><span class="ember e6"></span><span class="ember e7"></span><span class="ember e8"></span>
+    <span class="ember e9"></span><span class="ember e10"></span><span class="ember e11"></span><span class="ember e12"></span>
+  </div>
 
-    <div class="side-section">
-      <div class="side-title">الغرفة</div>
-      <div class="room-chip">
-        <span>🎭</span>
-        <span id="sidebarRoomName">{{ room_name }}</span>
-      </div>
-      <div class="room-code-box">
-        <span>الكود</span>
-        <strong id="sidebarRoomCode">{{ token }}</strong>
-      </div>
-      <div class="phase-card">
-        <div class="phase-card-label">الحالة الحالية</div>
-        <div class="phase-card-value" id="sidebarPhaseVal">اللوبي</div>
-      </div>
-      <div class="policy-card" id="policyCard">🔊 دردشة عامة</div>
-    </div>
+  <div class="drawer-backdrop hidden" id="drawerBackdrop"></div>
 
-    <div class="side-section grow">
-      <div class="side-title">اللاعبون <span id="sidebarCount">0</span></div>
-      <div class="sidebar-players" id="sidebarPlayers"></div>
-    </div>
-
-    <div class="user-box">
-      <div class="user-avatar" id="upAvatar"></div>
-      <div class="user-info">
-        <div class="user-name" id="upName">—</div>
-        <div class="user-status" id="upStatus">متصل</div>
-      </div>
-      <button class="icon-btn" id="btnMicSide" onclick="toggleMic()" title="ميكروفون">🎙️</button>
-    </div>
-  </aside>
-
-  <main class="main-panel">
-    <header class="top-bar">
-      <div class="top-left">
-        <button class="hamburger" onclick="toggleSidebar()">☰</button>
-        <div class="title-stack">
-          <div class="room-name" id="topBarRoomName">{{ room_name }}</div>
-          <div class="room-sub" id="topBarPhase">اللوبي — دردشة عامة</div>
+  <div class="room-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-head">
+        <div class="brand-lockup">
+          <div class="brand-logo">OMERTÀ</div>
+          <div class="brand-sub">Voice Mafia Arena</div>
         </div>
+        <button class="icon-surface only-mobile" type="button" id="closeSidebarBtn">
+          <img src="/static/svg/close.svg" alt="إغلاق القائمة" />
+        </button>
       </div>
-      <div class="top-right">
-        <div class="timer-pill" id="phaseTimer">--:--</div>
-        <div class="count-pill">👥 <span id="userCount">0</span>/<span id="maxCount">12</span></div>
-        <button class="start-btn hidden" id="tbStartBtn" onclick="startGame()">🎮 ابدأ المافيا</button>
-        <button class="icon-btn" onclick="copyCode()" title="نسخ الكود">⎘</button>
-        <button class="icon-btn" onclick="toggleChat()" title="المحادثة">💬</button>
-      </div>
-    </header>
 
-    <section class="center-stage">
-      <div class="board-glow"></div>
-      <div class="board-head">
+      <div class="side-card room-summary">
+        <div class="side-label">الغرفة</div>
+        <div class="summary-row">
+          <img src="/static/svg/room.svg" alt="room" />
+          <strong id="sidebarRoomName">{{ room_name }}</strong>
+        </div>
+        <div class="summary-grid">
+          <div class="summary-item">
+            <span>الكود</span>
+            <strong id="sidebarRoomCode">{{ token }}</strong>
+          </div>
+          <div class="summary-item">
+            <span>الحالة</span>
+            <strong id="sidebarPhaseVal">اللوبي</strong>
+          </div>
+        </div>
+        <div class="policy-card" id="policyCard">قناة عامة مفتوحة للجميع</div>
+      </div>
+
+      <div class="side-card players-card">
+        <div class="players-head">
+          <div class="side-label">اللاعبون</div>
+          <div class="players-count"><span id="sidebarCount">0</span>/12</div>
+        </div>
+        <div class="sidebar-players" id="sidebarPlayers"></div>
+      </div>
+
+      <div class="side-card self-card">
+        <div class="self-avatar" id="upAvatar"></div>
+        <div class="self-meta">
+          <strong id="upName">—</strong>
+          <span id="upStatus">متصل</span>
+        </div>
+        <button class="icon-surface" type="button" id="btnMicSide">
+          <img src="/static/svg/mic-off.svg" alt="الميكروفون" id="sideMicIcon" />
+        </button>
+      </div>
+    </aside>
+
+    <main class="main-panel">
+      <header class="top-bar">
+        <div class="top-left">
+          <button class="icon-surface" type="button" id="openSidebarBtn">
+            <img src="/static/svg/menu.svg" alt="فتح القائمة" />
+          </button>
+          <div class="top-copy">
+            <div class="top-title" id="topBarRoomName">{{ room_name }}</div>
+            <div class="top-subtitle" id="topBarPhase">اللوبي — قناة عامة</div>
+          </div>
+        </div>
+        <div class="top-right">
+          <div class="status-pill timer-pill" id="phaseTimer">--:--</div>
+          <div class="status-pill players-pill">
+            <img src="/static/svg/players.svg" alt="players" />
+            <span><span id="userCount">0</span>/12</span>
+          </div>
+          <button class="start-pill hidden" type="button" id="tbStartBtn">
+            <img src="/static/svg/start.svg" alt="start" />
+            <span>ابدأ اللعبة</span>
+          </button>
+          <button class="icon-surface" type="button" id="copyCodeBtn">
+            <img src="/static/svg/copy.svg" alt="نسخ الكود" />
+          </button>
+          <button class="icon-surface" type="button" id="openChatBtn">
+            <img src="/static/svg/chat.svg" alt="فتح المحادثة" />
+          </button>
+        </div>
+      </header>
+
+      <section class="center-stage">
+        <div class="stage-glow"></div>
+        <div class="board-head">
+          <div>
+            <div class="board-title">Arena of Silence</div>
+            <div class="board-sub">أماكن اللاعبين تتوزع عشوائياً داخل 12 مقعداً ثابتاً</div>
+          </div>
+          <div class="board-actions">
+            <button class="ghost-btn" type="button" id="copyCodeBtnWide">
+              <img src="/static/svg/copy.svg" alt="copy" />
+              <span>نسخ الكود</span>
+            </button>
+            <button class="start-pill hidden" type="button" id="startGameBtn">
+              <img src="/static/svg/start.svg" alt="start" />
+              <span>ابدأ اللعبة</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="seat-board" id="seatBoard"></div>
+
+        <div class="stage-center-card">
+          <div class="center-logo">OMERTÀ</div>
+          <div class="center-round" id="centerRound">بانتظار بدء اللعبة</div>
+          <div class="center-announcement" id="centerAnnouncement">اجمع 4 لاعبين على الأقل ثم ابدأ الجولة الأولى.</div>
+        </div>
+      </section>
+
+      <footer class="control-bar">
+        <button class="control-btn" type="button" id="btnMic">
+          <img src="/static/svg/mic-off.svg" alt="الميكروفون" id="micStateIcon" />
+          <span>الميكروفون</span>
+        </button>
+        <button class="control-btn" type="button" id="btnChat">
+          <img src="/static/svg/chat.svg" alt="المحادثة" />
+          <span>المحادثة</span>
+        </button>
+        <button class="control-btn danger" type="button" id="leaveBtn">
+          <img src="/static/svg/leave.svg" alt="مغادرة" />
+          <span>مغادرة</span>
+        </button>
+      </footer>
+    </main>
+
+    <aside class="chat-panel" id="chatPanel">
+      <div class="chat-head">
         <div>
-          <div class="board-title">Arena of Silence</div>
-          <div class="board-hint">أماكن اللاعبين عشوائية داخل 12 مقعداً ثابتاً</div>
+          <div class="chat-title">محادثة الغرفة</div>
+          <div class="chat-sub">الرسائل العامة فقط</div>
         </div>
-        <div class="board-actions">
-          <button class="ghost-btn" onclick="copyCode()">نسخ الكود</button>
-          <button class="start-btn hidden" id="startGameBtn" onclick="startGame()">🎮 بدء اللعبة</button>
+        <button class="icon-surface" type="button" id="closeChatBtn">
+          <img src="/static/svg/close.svg" alt="إغلاق المحادثة" />
+        </button>
+      </div>
+      <div class="chat-messages" id="chatMessages">
+        <div class="sys-msg">تم فتح الغرفة. جهزوا الفريق قبل بداية اللعبة.</div>
+      </div>
+      <div class="chat-form">
+        <input id="chatInput" type="text" maxlength="500" placeholder="اكتب رسالة..." />
+        <button class="primary-send" type="button" id="sendMsgBtn">إرسال</button>
+      </div>
+    </aside>
+  </div>
+
+  <div class="phase-overlay hidden" id="phaseOverlay">
+    <div class="phase-card-shell">
+      <div class="phase-icon-wrap">
+        <img id="overlayIcon" src="/static/svg/cards.svg" alt="phase icon" />
+      </div>
+      <div class="phase-badge" id="overlayBadge">مرحلة</div>
+      <h2 class="phase-title" id="overlayTitle">توزيع الأدوار</h2>
+      <p class="phase-subtitle" id="overlaySubtitle">انتظر التعليمات الحالية.</p>
+
+      <div class="role-reveal hidden" id="roleRevealCard">
+        <div class="role-reveal-top">
+          <img id="roleCardIcon" src="/static/svg/role-citizen.svg" alt="role" />
+          <div>
+            <div class="role-kicker">دورك</div>
+            <div class="role-name" id="roleCardName">—</div>
+          </div>
         </div>
+        <p class="role-desc" id="roleCardDesc">—</p>
       </div>
 
-      <div class="seat-board" id="seatBoard"></div>
-
-      <div class="stage-center-card">
-        <div class="center-orb"></div>
-        <div class="center-title">OMERTÀ</div>
-        <div class="center-round" id="centerRound">بانتظار بدء اللعبة</div>
-        <div class="center-announcement" id="centerAnnouncement">اجمع 4 لاعبين على الأقل لبدء الجولة.</div>
+      <div class="phase-selection hidden" id="selectionWrap">
+        <div class="selection-list" id="actionList"></div>
+        <button class="primary-send hidden" type="button" id="actionSubmitBtn">تأكيد الاختيار</button>
       </div>
-    </section>
 
-    <section class="control-bar">
-      <button class="control-btn" id="btnMic" onclick="toggleMic()"><span id="micStateIcon">🎙️</span><span>الميكروفون</span></button>
-      <button class="control-btn" id="btnChat" onclick="toggleChat()">💬 <span>المحادثة</span></button>
-      <button class="control-btn danger" onclick="confirmLeave()">🚪 <span>مغادرة</span></button>
-    </section>
-  </main>
-
-  <aside class="chat-panel" id="chatPanel">
-    <div class="chat-header">
-      <div>
-        <div class="chat-title">محادثة الغرفة</div>
-        <div class="chat-sub">الرسائل العامة فقط</div>
+      <div class="phase-selection hidden" id="votePanel">
+        <div class="selection-list" id="voteList"></div>
       </div>
-      <button class="icon-btn" onclick="toggleChat()">✕</button>
-    </div>
-    <div class="chat-messages" id="chatMessages">
-      <div class="chat-welcome">مرحباً بكم في الغرفة. جهّزوا الخطة قبل بداية الليل.</div>
-    </div>
-    <div class="chat-input-wrap">
-      <input id="chatInput" type="text" maxlength="500" placeholder="أرسل رسالة..."/>
-      <button class="send-btn" onclick="sendMsg()">إرسال</button>
-    </div>
-  </aside>
-</div>
-
-<div class="phase-overlay hidden" id="phaseOverlay">
-  <div class="phase-shell">
-    <div class="phase-badge" id="overlayBadge">🎴 مرحلة</div>
-    <div class="phase-title" id="overlayTitle">توزيع الأدوار</div>
-    <div class="phase-subtitle" id="overlaySubtitle">انتظر قليلاً...</div>
-    <div class="phase-role-card hidden" id="roleRevealCard">
-      <div class="card-icon" id="roleCardIcon">🎭</div>
-      <div class="card-label">دورك</div>
-      <div class="card-name" id="roleCardName">—</div>
-      <div class="card-desc" id="roleCardDesc">—</div>
-    </div>
-    <div class="action-panel" id="actionPanel">
-      <div class="action-list" id="actionList"></div>
-      <button class="primary-btn hidden" id="actionSubmitBtn" onclick="sendNightAction()">تأكيد الاختيار</button>
-    </div>
-    <div class="vote-panel hidden" id="votePanel">
-      <div class="vote-list" id="voteList"></div>
     </div>
   </div>
-</div>
 
-<div class="result-drawer hidden" id="resultDrawer">
-  <div class="result-title" id="resultsWinner">انتهت الجولة</div>
-  <div class="result-sub" id="resultsLabel"></div>
-  <div class="results-grid" id="resultsGrid"></div>
-  <button class="primary-btn" onclick="resetGame()">🔄 جولة جديدة</button>
-</div>
-
-<div class="modal-backdrop hidden" id="minPlayersModal">
-  <div class="modal-card epic">
-    <div class="modal-icon">⚠️</div>
-    <div class="modal-title">العدد غير كافٍ</div>
-    <div class="modal-body">أنتم أقل من 4 لاعبين حالياً. اجمعوا المزيد ثم ابدأوا اللعبة.</div>
-    <button class="primary-btn" onclick="closeMinPlayersModal()">فهمت</button>
+  <div class="result-drawer hidden" id="resultDrawer">
+    <button class="icon-surface result-close" type="button" id="closeResultsBtn">
+      <img src="/static/svg/close.svg" alt="إغلاق النتائج" />
+    </button>
+    <div class="result-title" id="resultsWinner">انتهت الجولة</div>
+    <div class="result-label" id="resultsLabel"></div>
+    <div class="results-grid" id="resultsGrid"></div>
+    <button class="primary-btn full" type="button" id="resetGameBtn">جولة جديدة</button>
   </div>
-</div>
 
-<div class="toast-container" id="toastContainer"></div>
+  <div class="modal-backdrop hidden" id="minPlayersModal">
+    <div class="modal-card">
+      <div class="modal-visual"><img src="/static/svg/players.svg" alt="players" /></div>
+      <h3>عدد اللاعبين غير كافٍ</h3>
+      <p>تحتاج الغرفة إلى 4 لاعبين على الأقل قبل بدء اللعبة.</p>
+      <button class="primary-btn full" type="button" id="closeMinPlayersBtn">فهمت</button>
+    </div>
+  </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
-<script>
-  window.ROOM_TOKEN = "{{ token }}";
-  window.ROOM_NAME = "{{ room_name }}";
-</script>
-<script src="/static/js/room.js"></script>
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+  <script>
+    window.ROOM_TOKEN = "{{ token }}";
+    window.ROOM_NAME = "{{ room_name }}";
+  </script>
+  <script src="/static/js/room.js"></script>
 </body>
 </html>

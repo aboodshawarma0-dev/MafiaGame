@@ -39,10 +39,10 @@ DETECTIVE_SECONDS = 15
 VOTING_SECONDS = 20
 
 ROLES = {
-    "mafia": {"label": "المافيا", "color": "#ff5a6c", "icon": "🗡️"},
-    "citizen": {"label": "المواطن", "color": "#4de2c5", "icon": "🛡️"},
-    "doctor": {"label": "الطبيب", "color": "#6fb8ff", "icon": "🩺"},
-    "detective": {"label": "الكاشف", "color": "#ffd166", "icon": "🕵️"},
+    "mafia": {"label": "المافيا", "color": "#ff5a6c", "icon": "/static/svg/role-mafia.svg"},
+    "citizen": {"label": "المواطن", "color": "#4de2c5", "icon": "/static/svg/role-citizen.svg"},
+    "doctor": {"label": "الطبيب", "color": "#6fb8ff", "icon": "/static/svg/role-doctor.svg"},
+    "detective": {"label": "الكاشف", "color": "#ffd166", "icon": "/static/svg/role-detective.svg"},
 }
 
 PHASE_META = {
@@ -544,9 +544,9 @@ def resolve_night(token: str) -> None:
         room["players"][victim_sid]["alive"] = False
         room["players"][victim_sid]["speaking"] = False
         killed_name = room["players"][victim_sid]["username"]
-        room["last_announcement"] = f"☠️ تم العثور على {killed_name} مقتولاً"
+        room["last_announcement"] = f"تم العثور على {killed_name} مقتولاً"
     else:
-        room["last_announcement"] = "🌅 لم يمت أحد هذه الليلة"
+        room["last_announcement"] = "لم يمت أحد هذه الليلة"
 
     room["night_actions"] = {
         "mafia_votes": {},
@@ -577,9 +577,9 @@ def resolve_vote(token: str) -> None:
             room["players"][eliminated_sid]["speaking"] = False
             role = room["players"][eliminated_sid].get("role") or "citizen"
             eliminated_name = room["players"][eliminated_sid]["username"]
-            room["last_announcement"] = f"🗳️ أُقصي {eliminated_name} — {ROLES[role]['label']}"
+            room["last_announcement"] = f"أُقصي {eliminated_name} — {ROLES[role]['label']}"
     else:
-        room["last_announcement"] = "🤝 انتهى التصويت بدون إقصاء"
+        room["last_announcement"] = "انتهى التصويت بدون إقصاء"
     room["votes"] = {}
     winner = check_win(room)
     if winner:
@@ -753,7 +753,7 @@ def handle_join(data):
             room["players"][request.sid] = player_data
             if room["host"] == existing_sid:
                 room["host"] = request.sid
-            system_message(token, f"🔁 عاد {username} إلى الغرفة")
+            system_message(token, f"عاد {username} إلى الغرفة")
         elif existing_sid == request.sid:
             room["players"][request.sid]["avatar"] = avatar
             room["players"][request.sid]["avatarType"] = avatar_type
@@ -782,7 +782,7 @@ def handle_join(data):
             }
             if not room["host"]:
                 room["host"] = request.sid
-            system_message(token, f"👋 انضم {username} إلى الغرفة")
+            system_message(token, f"انضم {username} إلى الغرفة")
 
         join_room(token)
         emit(
@@ -824,7 +824,7 @@ def handle_disconnect():
             if not room["players"]:
                 rooms.pop(token, None)
             else:
-                system_message(token, f"👋 غادر {username} الغرفة")
+                system_message(token, f"غادر {username} الغرفة")
                 sync_players(token)
                 winner = check_win(room)
                 if winner:

@@ -1,0 +1,51 @@
+<svg width="160" height="160" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgA-warden" x1="20" y1="12" x2="108" y2="118" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#201914"/>
+      <stop offset="1" stop-color="#0D0A08"/>
+    </linearGradient>
+    <linearGradient id="halo-warden" x1="24" y1="12" x2="100" y2="112" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F3D37C" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#CF9836" stop-opacity="0.85"/>
+    </linearGradient>
+    <linearGradient id="coat-warden" x1="32" y1="74" x2="95" y2="116" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F3D37C" stop-opacity="0.92"/>
+      <stop offset="1" stop-color="#CF9836" stop-opacity="0.92"/>
+    </linearGradient>
+    <radialGradient id="face-warden" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(63 55) rotate(90) scale(34 26)">
+      <stop stop-color="#FFF0C4"/>
+      <stop offset="1" stop-color="#E1B59A"/>
+    </radialGradient>
+  </defs>
+  <rect x="4" y="4" width="120" height="120" rx="38" fill="url(#bgA-warden)"/>
+  <rect x="8" y="8" width="112" height="112" rx="34" stroke="rgba(255,255,255,0.10)" stroke-width="1.8"/>
+  <circle cx="64" cy="55" r="39" fill="url(#halo-warden)" opacity="0.13"/>
+  <circle cx="64" cy="56" r="34" fill="#090E1D" opacity="0.55"/>
+  <ellipse cx="64" cy="103" rx="31" ry="10" fill="#09101E" opacity="0.35"/>
+  <path d="M34 95C34 77 47 66 64 66C81 66 94 77 94 95V106H34V95Z" fill="url(#coat-warden)"/>
+  <path d="M46 107H82" stroke="rgba(255,255,255,0.13)" stroke-width="3" stroke-linecap="round"/>
+  <path d="M50 78L64 90L78 78" stroke="#53E1C0" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <ellipse cx="64" cy="55" rx="24" ry="27" fill="url(#face-warden)"/>
+  <path d="M41 55C42 36 51 26 64 26C77 26 86 36 87 55" fill="#0D101C" opacity="0.18"/>
+  <path d="M48 48C52 44 56 42 60 42" stroke="#0C1324" stroke-width="3" stroke-linecap="round"/>
+  <path d="M68 42C72 42 76 44 80 48" stroke="#0C1324" stroke-width="3" stroke-linecap="round"/>
+  <ellipse cx="54" cy="57" rx="7" ry="8" fill="#F8FBFF"/>
+  <ellipse cx="74" cy="57" rx="7" ry="8" fill="#F8FBFF"/>
+  <ellipse cx="54" cy="58" rx="3.5" ry="4.5" fill="#243A66"/>
+  <ellipse cx="74" cy="58" rx="3.5" ry="4.5" fill="#243A66"/>
+  <circle cx="55" cy="57" r="1.2" fill="#F8FBFF"/>
+  <circle cx="75" cy="57" r="1.2" fill="#F8FBFF"/>
+  <path d="M58 72C61 74 67 74 70 72" stroke="#B56770" stroke-width="2.8" stroke-linecap="round"/>
+  <path d="M64 60V67" stroke="#D39C8E" stroke-width="2.2" stroke-linecap="round"/>
+  <circle cx="38" cy="38" r="5" fill="#F3D37C" opacity="0.25"/>
+  <circle cx="92" cy="32" r="4" fill="#53E1C0" opacity="0.24"/>
+  <circle cx="94" cy="96" r="5" fill="#CF9836" opacity="0.16"/>
+  <circle cx="29" cy="93" r="6" fill="#53E1C0" opacity="0.14"/>
+  <path d="M42 28L64 20L86 28L80 36H48L42 28Z" fill="#CF9836"/>
+<path d="M48 36H80V42H48V36Z" fill="#F3D37C" opacity="0.55"/>
+<path d="M52 83H76L73 99H55L52 83Z" fill="#201914"/>
+<circle cx="64" cy="74" r="4" fill="#53E1C0"/>
+
+  <path d="M22 20C30 12 44 8 64 8" stroke="rgba(255,255,255,0.14)" stroke-width="2" stroke-linecap="round"/>
+  <path d="M106 98C99 109 87 118 68 120" stroke="rgba(255,255,255,0.10)" stroke-width="2" stroke-linecap="round"/>
+</svg>
